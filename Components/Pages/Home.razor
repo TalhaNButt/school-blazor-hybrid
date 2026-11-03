@@ -1,0 +1,33 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+<!-- CardsPage.razor -->
+<div class="cards-container">
+    @foreach (var card in Cards)
+    {
+        <div class="card" @onclick="NavigateToUserDetailComponent">
+            <img src="@card.ImageUrl" alt="@card.Title" class="card-image" />
+            <div class="card-content">
+                <h3>@card.Title</h3>
+                <p>@card.Description</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private void NavigateToUserDetailComponent() => Navigation.NavigateTo("user-detail");
+
+    private List<CardModel> Cards = new()
+    {
+        new CardModel { Title = "Abdul Rafay Butt", Description = "Tiny Tots", ImageUrl = "images/dotnet_bot.svg" },
+        new CardModel { Title = "Abdul Ahad Butt", Description = "N/A", ImageUrl = "images/dotnet_bot.svg" }
+    };
+
+    public class CardModel
+    {
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+    }
+}
