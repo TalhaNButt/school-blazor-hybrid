@@ -50,10 +50,16 @@
 </div>
 
 @code {
-    private void HandleLogout()
+    private async Task HandleLogout()
     {
         // TODO: Add logout logic here
         // Navigate back to login
-        AuthService.NavigateToHome(); // You might want a LoginNavigateToLogin method
+        
+        var success = await AuthService.LogoutAsync();
+
+        if (success)
+        {
+            AuthService.NavigateToLogin();
+        }
     }
 }

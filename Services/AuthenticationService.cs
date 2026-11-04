@@ -6,8 +6,10 @@ namespace MyHybridApp2.Services
     public interface IAuthenticationService
     {
         Task<bool> LoginAsync(LoginRequest request);
+        Task<bool> LogoutAsync();
         bool IsLoggedIn();
         void NavigateToHome();
+        void NavigateToLogin();
     }
 
     public class AuthenticationService(NavigationManager navigationManager) : IAuthenticationService
@@ -27,10 +29,21 @@ namespace MyHybridApp2.Services
             return true;
         }
 
-        public bool IsLoggedIn() => _isLoggedIn;
-        public void NavigateToHome()
+         public async Task<bool> LogoutAsync()
         {
-            _navigationManager.NavigateTo("/home");
+            // TODO: Add real authentication logic here
+            // For now, we simulate a successful logout
+            await Task.Delay(500); // Simulate network delay
+            
+            // Return true for demo purposes
+            _isLoggedIn = false;
+
+            return true;
         }
+
+        public bool IsLoggedIn() => _isLoggedIn;
+        public void NavigateToHome() => _navigationManager.NavigateTo("/home");
+        public void NavigateToLogin() => _navigationManager.NavigateTo("/");
+        
     }
 }
