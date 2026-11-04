@@ -17,6 +17,7 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 		builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+		builder.Services.AddScoped<IPostService, PostService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
