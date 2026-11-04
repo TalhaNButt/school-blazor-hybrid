@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using MyHybridApp2.Services;
 
 namespace MyHybridApp2;
 
@@ -15,6 +16,7 @@ public static class MauiProgram
 			});
 
 		builder.Services.AddMauiBlazorWebView();
+		builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

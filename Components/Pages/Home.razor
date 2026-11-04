@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@* @page "/"
 @inject NavigationManager Navigation
 
 <!-- CardsPage.razor -->
@@ -29,5 +29,31 @@
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
         public string ImageUrl { get; set; } = "";
+    }
+} *@
+
+@page "/home"
+@using MyHybridApp2.Services
+@inject IAuthenticationService AuthService
+
+<PageTitle>Home</PageTitle>
+
+<div class="home-container">
+    <div class="welcome-card">
+        <h1>Welcome!</h1>
+        <p>You have successfully logged in.</p>
+        
+        <button @onclick="HandleLogout" class="logout-button">
+            Logout
+        </button>
+    </div>
+</div>
+
+@code {
+    private void HandleLogout()
+    {
+        // TODO: Add logout logic here
+        // Navigate back to login
+        AuthService.NavigateToHome(); // You might want a LoginNavigateToLogin method
     }
 }

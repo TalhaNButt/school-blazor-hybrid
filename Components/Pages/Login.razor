@@ -1,0 +1,91 @@
+﻿@page "/"
+@page "/login"
+@inject IAuthenticationService AuthService
+@using MyHybridApp2.Models
+@using MyHybridApp2.Services
+
+<PageTitle>Login</PageTitle>
+
+<div class="login-container">
+    <div class="login-header">
+        <h2>Welcome Back</h2>
+        <p>Please sign in to continue</p>
+    </div>
+
+    <EditForm Model="@loginModel" OnValidSubmit="HandleLoginAsync" class="login-form">
+        <DataAnnotationsValidator />
+
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <InputText id="email" class="form-input" @bind-Value="loginModel.Email" placeholder="Enter your email">
+                <ValidationMessage For="@(() => loginModel.Email)" class="validation-message" />
+            </InputText>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <InputText id="password" type="password" class="form-input" 
+                       @bind-Value="loginModel.Password" placeholder="Enter your password">
+                <ValidationMessage For="@(() => loginModel.Password)" class="validation-message" />
+            </InputText>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="error-message">
+                @error
+            </div>
+        }
+
+        @if (isLoading)
+        {
+            <div class="loading-indicator">
+                <span class="spinner"></span>
+                Signing in...
+            </div>
+        }
+
+        <button type="submit" class="login-button" disabled="@isLoading">
+            Sign In
+        </button>
+    </EditForm>
+
+    <div class="login-links">
+        <a href="/signup" class="link">Don't have an account? Sign Up</a>
+        <a href="/forgot-password" class="link">Forgot Password?</a>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new();
+    private bool isLoading = false;
+    private string? error;
+
+    private async Task HandleLoginAsync()
+    {
+        isLoading = true;
+        error = null;
+
+        try
+        {
+            var success = await AuthService.LoginAsync(loginModel);
+
+            if (success)
+            {
+                AuthService.NavigateToHome();
+            }
+            else
+            {
+                error = "Invalid email or password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
