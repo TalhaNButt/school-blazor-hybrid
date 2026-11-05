@@ -1,0 +1,12 @@
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/bin/Debug/net10.0/MyHybridApp2.Shared.deps.json
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/bin/Debug/net10.0/MyHybridApp2.Shared.dll
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/bin/Debug/net10.0/MyHybridApp2.Shared.pdb
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.GeneratedMSBuildEditorConfig.editorconfig
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.AssemblyInfoInputs.cache
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.AssemblyInfo.cs
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.csproj.CoreCompileInputs.cache
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.sourcelink.json
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.dll
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/refint/MyHybridApp2.Shared.dll
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/MyHybridApp2.Shared.pdb
+/Users/talhabutt/Documents/MAUI/MyHybridApp2/src/MyHybridApp2.Shared/obj/Debug/net10.0/ref/MyHybridApp2.Shared.dll
