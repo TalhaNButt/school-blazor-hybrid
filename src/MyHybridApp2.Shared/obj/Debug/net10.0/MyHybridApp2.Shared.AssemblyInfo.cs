@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MyHybridApp2.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a8b95e46bf30a44b4b13a379f080b0a17bdd9ca9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ac066e119343bd887efbc574a78cce6cd8ed279")]
 [assembly: System.Reflection.AssemblyProductAttribute("MyHybridApp2.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MyHybridApp2.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
