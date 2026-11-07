@@ -1,5 +1,7 @@
 <Solution>
-  <Project Path="MyHybridApp2.csproj">
-    <Deploy Solution="Debug|*" />
-  </Project>
+  <Folder Name="/src/">
+    <Project Path="src/MyHybridApp2.Api/MyHybridApp2.Api.csproj" />
+    <Project Path="src/MyHybridApp2.Shared/MyHybridApp2.Shared.csproj" />
+    <Project Path="src/MyHybridApp2/MyHybridApp2.csproj" />
+  </Folder>
 </Solution>
