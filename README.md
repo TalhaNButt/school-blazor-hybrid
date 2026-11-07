@@ -4,6 +4,7 @@ A comprehensive guide for setting up and running .NET MAUI Blazor Hybrid applica
 
 ## Table of Contents
 
+- [Solution Architecture](#solution-architecture)
 - [Prerequisites & Environment Setup](#prerequisites--environment-setup)
 - [Clean Build Commands](#clean-build-commands)
 - [Build and Run Commands](#build-and-run-commands)
@@ -11,6 +12,94 @@ A comprehensive guide for setting up and running .NET MAUI Blazor Hybrid applica
 - [Common Issues & Fixes](#common-issues--fixes)
 - [Quick Cheatsheet](#quick-cheatsheet)
 - [Daily Workflow](#daily-workflow)
+
+---
+
+## Solution Architecture
+
+The API follows **Clean Architecture**. The client is a thin MAUI host around a reusable Razor Class Library.
+
+```
+MyHybridApp2.slnx
+global.json · Directory.Build.props · Directory.Packages.props · .editorconfig
+src/
+  Server/
+    MyHybridApp2.Domain           entities and business rules (no dependencies)
+    MyHybridApp2.Application      use cases (handlers), validators, IAppDbContext abstraction
+    MyHybridApp2.Infrastructure   EF Core + PostgreSQL, entity configurations, migrations
+    MyHybridApp2.Api              minimal API endpoints, ProblemDetails, OpenAPI, composition root
+  Shared/
+    MyHybridApp2.Shared           API contracts (request/response DTOs) used by the API and the clients
+  Client/
+    MyHybridApp2.UI               Razor Class Library: pages, layout, typed HttpClient services
+    MyHybridApp2                  .NET MAUI host: platforms, resources, DI wiring
+tests/
+  MyHybridApp2.Application.Tests     unit tests (EF Core InMemory)
+  MyHybridApp2.Api.IntegrationTests  end-to-end API tests against PostgreSQL in Docker (Testcontainers)
+```
+
+**Dependency rule:** `Api → Infrastructure → Application → Domain`. `Application` and `UI` both depend on `Shared`, and the client never references server projects.
+
+**Conventions**
+- Every NuGet version lives in `Directory.Packages.props`. Project files list packages without versions.
+- Add a feature as `Application/<Feature>/<UseCase>.cs` (handler + validator), map it in `Api/Endpoints/<Feature>Endpoints.cs`, and register the handler in `Application/DependencyInjection.cs`.
+- Validation errors return `400` ValidationProblem, `NotFoundException` returns `404`, and everything else returns `500` ProblemDetails (see `GlobalExceptionHandler`).
+- Multi-school support: when it's needed, add `SchoolId` to `Domain/Common/Entity.cs` plus an EF global query filter in `AppDbContext`.
+
+### Quick start: whole backend in one command (Podman or Docker)
+
+`compose.yaml` starts PostgreSQL, applies EF Core migrations (a one-shot `migrations` container), then starts the API.
+The image is built from `src/Server/MyHybridApp2.Api/Containerfile`.
+
+```bash
+podman compose up --build -d      # or: docker compose up --build -d
+```
+
+| URL | What |
+|---|---|
+| http://localhost:5206/scalar | API docs / try requests |
+| http://localhost:5206/health | `Healthy` when the API can reach the database |
+| `localhost:5432` | PostgreSQL (`localuser` / `local_password`, database `school_database`) |
+
+Then run the MAUI app (F5, or `dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-windows10.0.19041.0`). It is a native app, so it runs outside containers.
+
+```bash
+podman compose logs -f api        # follow API logs
+podman compose up --build -d api  # rebuild and restart only the API after code changes
+podman compose down               # stop everything (data is kept in the pgdata volume)
+podman compose down -v            # stop and delete the database
+```
+
+To change credentials or ports, copy `.env.example` to `.env` and edit it.
+
+> If you also run the API from VS Code/`dotnet run`, stop the `api` container first (`podman compose stop api`), because both use port 5206.
+
+### Running the API without containers
+
+```bash
+# Connection string: appsettings.Development.json has a local default. Override it with user secrets:
+dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=school_database;Username=...;Password=..." --project src/Server/MyHybridApp2.Api
+
+# Apply migrations
+dotnet ef database update --project src/Server/MyHybridApp2.Infrastructure --startup-project src/Server/MyHybridApp2.Api
+
+# Add a migration
+dotnet ef migrations add <Name> --project src/Server/MyHybridApp2.Infrastructure --startup-project src/Server/MyHybridApp2.Api --output-dir Persistence/Migrations
+
+# Run (http://localhost:5206, API reference UI at /scalar, health at /health)
+dotnet run --project src/Server/MyHybridApp2.Api --launch-profile http
+```
+
+In Debug builds the MAUI app calls `http://localhost:5206` (`http://10.0.2.2:5206` on the Android emulator), so start the API first.
+
+### Tests
+
+```bash
+dotnet test                                                   # all tests (integration tests need Docker running)
+dotnet test --project tests/MyHybridApp2.Application.Tests    # unit tests only
+```
+
+> The MAUI build and run commands below assume you are in `src/Client/MyHybridApp2`.
 
 ---
 

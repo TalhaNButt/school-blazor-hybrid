@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Use cases. Depends only on Domain and Shared contracts; infrastructure is reached through abstractions. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- EF Core abstractions only (DbSet/IQueryable). No database provider is referenced here. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyHybridApp2.Domain\MyHybridApp2.Domain.csproj" />
+    <ProjectReference Include="..\..\Shared\MyHybridApp2.Shared\MyHybridApp2.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

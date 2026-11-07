@@ -1,0 +1,16 @@
+@* Components/TextHighlighter.razor *@
+
+@if (!string.IsNullOrEmpty(Text))
+{
+    <span @attributes="AdditionalAttributes">
+        @((MarkupString)TextFormatter.ToHighlightedHtml(Text, HashtagsColor, MentionsColor))
+    </span>
+}
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string HashtagsColor { get; set; } = "#6d4aff";
+    [Parameter] public string MentionsColor { get; set; } = "#007bff";
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}
