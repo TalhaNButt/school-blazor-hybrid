@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MyHybridApp2.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>
