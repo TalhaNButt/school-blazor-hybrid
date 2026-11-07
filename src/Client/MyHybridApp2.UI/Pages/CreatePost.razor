@@ -1,0 +1,111 @@
+@* Components/CreatePost.razor *@
+@inject IPostService PostService
+
+<div class="create-post-container">
+    <div class="create-post-header">
+        <img src="@AvatarUrl" alt="Your avatar" class="avatar-small" />
+        <div class="input-wrapper">
+            <textarea @bind="_contentText" @bind:event="oninput"
+                      placeholder="What's on your mind?"
+                      class="post-textarea" rows="2" maxlength="500"></textarea>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_mediaPreviewUrl))
+    {
+        <div class="media-preview">
+            @if (_currentMediaType?.StartsWith("video/") == true)
+            {
+                <video src="@_mediaPreviewUrl" class="preview-media" controls></video>
+            }
+            else
+            {
+                <img src="@_mediaPreviewUrl" class="preview-media" alt="Selected media" />
+            }
+            <button type="button" class="remove-media-btn"
+                    @onclick="RemoveMedia" aria-label="Remove media">×</button>
+        </div>
+    }
+
+    <div class="create-post-actions">
+        <div class="action-buttons">
+            <button type="button" class="action-btn image-btn" @onclick="SelectImage">Photo</button>
+            <button type="button" class="action-btn video-btn" @onclick="SelectVideo">Video</button>
+        </div>
+
+        <button type="button" class="publish-btn"
+                @onclick="HandlePublish"
+                disabled="@(!CanPublish)">
+            @if (_isPublishing)
+            {
+                <span class="spinner-small"></span>
+                <span>Publishing...</span>
+            }
+            else
+            {
+                <span>Publish</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<Post> OnPostCreated { get; set; }
+
+    private string _contentText = string.Empty;
+    private string? _mediaPreviewUrl;
+    private string? _currentMediaType;
+    private bool _isPublishing;
+
+    private string AvatarUrl => "https://ui-avatars.com/api/?name=User&background=random";
+
+    private bool CanPublish =>
+        !_isPublishing &&
+        (!string.IsNullOrWhiteSpace(_contentText) || !string.IsNullOrEmpty(_mediaPreviewUrl));
+
+    private void SelectImage()
+    {
+        _mediaPreviewUrl = "https://picsum.photos/seed/randompost/600/400";
+        _currentMediaType = "image/jpeg";
+    }
+
+    private void SelectVideo()
+    {
+        _mediaPreviewUrl = "https://www.w3schools.com/html/mov_bbb.mp4";
+        _currentMediaType = "video/mp4";
+    }
+
+    private void RemoveMedia()
+    {
+        _mediaPreviewUrl = null;
+        _currentMediaType = null;
+    }
+
+    private async Task HandlePublish()
+    {
+        if (!CanPublish) return;
+
+        _isPublishing = true;
+
+        var post = new Post
+        {
+            AuthorName = "Current User",
+            AuthorAvatarUrl = AvatarUrl,
+            CreatedAt = DateTime.Now,
+            Type = string.IsNullOrEmpty(_mediaPreviewUrl)
+                ? PostType.Text
+                : (_currentMediaType?.StartsWith("video/") == true ? PostType.Video : PostType.Image),
+            ContentText = _contentText.Trim(),
+            MediaUrl = _mediaPreviewUrl,
+            MediaType = _currentMediaType
+        };
+
+        var created = await PostService.CreatePostAsync(post);
+        await OnPostCreated.InvokeAsync(created);
+
+        _contentText = string.Empty;
+        _mediaPreviewUrl = null;
+        _currentMediaType = null;
+        _isPublishing = false;
+    }
+}

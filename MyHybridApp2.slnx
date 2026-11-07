@@ -1,7 +1,28 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/MyHybridApp2.Api/MyHybridApp2.Api.csproj" />
-    <Project Path="src/MyHybridApp2.Shared/MyHybridApp2.Shared.csproj" />
-    <Project Path="src/MyHybridApp2/MyHybridApp2.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Server/">
+    <Project Path="src/Server/MyHybridApp2.Domain/MyHybridApp2.Domain.csproj" />
+    <Project Path="src/Server/MyHybridApp2.Application/MyHybridApp2.Application.csproj" />
+    <Project Path="src/Server/MyHybridApp2.Infrastructure/MyHybridApp2.Infrastructure.csproj" />
+    <Project Path="src/Server/MyHybridApp2.Api/MyHybridApp2.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/MyHybridApp2.Shared/MyHybridApp2.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/Client/">
+    <Project Path="src/Client/MyHybridApp2.UI/MyHybridApp2.UI.csproj" />
+    <Project Path="src/Client/MyHybridApp2/MyHybridApp2.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MyHybridApp2.Application.Tests/MyHybridApp2.Application.Tests.csproj" />
+    <Project Path="tests/MyHybridApp2.Api.IntegrationTests/MyHybridApp2.Api.IntegrationTests.csproj" />
   </Folder>
 </Solution>
