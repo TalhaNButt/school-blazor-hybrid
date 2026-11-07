@@ -31,6 +31,7 @@ coverage*.xml
 # Local secrets / environment overrides
 .env
 .env.*
+!.env.example
 appsettings.*.local.json
 
 # OS-generated files

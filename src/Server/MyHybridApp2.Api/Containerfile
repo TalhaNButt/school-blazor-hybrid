@@ -1,0 +1,49 @@
+# Container image for MyHybridApp2.Api (works with Podman and Docker).
+# Build context is the repository root:
+#   podman build -f src/Server/MyHybridApp2.Api/Containerfile -t myhybridapp2-api .
+
+ARG DOTNET_VERSION=10.0
+
+# ---------- build ----------
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
+WORKDIR /src
+
+# Restore first, using only project files, so the NuGet layer is cached until dependencies change.
+COPY global.json Directory.Build.props Directory.Packages.props .editorconfig ./
+COPY src/Shared/MyHybridApp2.Shared/MyHybridApp2.Shared.csproj src/Shared/MyHybridApp2.Shared/
+COPY src/Server/MyHybridApp2.Domain/MyHybridApp2.Domain.csproj src/Server/MyHybridApp2.Domain/
+COPY src/Server/MyHybridApp2.Application/MyHybridApp2.Application.csproj src/Server/MyHybridApp2.Application/
+COPY src/Server/MyHybridApp2.Infrastructure/MyHybridApp2.Infrastructure.csproj src/Server/MyHybridApp2.Infrastructure/
+COPY src/Server/MyHybridApp2.Api/MyHybridApp2.Api.csproj src/Server/MyHybridApp2.Api/
+RUN dotnet restore src/Server/MyHybridApp2.Api/MyHybridApp2.Api.csproj
+
+COPY src/Shared/ src/Shared/
+COPY src/Server/ src/Server/
+RUN dotnet publish src/Server/MyHybridApp2.Api/MyHybridApp2.Api.csproj \
+    --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
+
+# ---------- EF Core migration bundle ----------
+FROM build AS migrations-build
+ARG EF_VERSION=10.0.14
+RUN dotnet tool install --global dotnet-ef --version ${EF_VERSION}
+ENV PATH="${PATH}:/root/.dotnet/tools"
+# The API's startup code needs a connection string to build the host; this placeholder is never connected to.
+RUN ConnectionStrings__Default="Host=placeholder" dotnet ef migrations bundle \
+    --project src/Server/MyHybridApp2.Infrastructure \
+    --startup-project src/Server/MyHybridApp2.Api \
+    --configuration Release --output /app/efbundle --force
+
+# Applies pending migrations, then exits. Pass the target with --connection.
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS migrations
+WORKDIR /app
+COPY --from=migrations-build /app/efbundle .
+USER $APP_UID
+ENTRYPOINT ["./efbundle"]
+
+# ---------- runtime ----------
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+USER $APP_UID
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "MyHybridApp2.Api.dll"]

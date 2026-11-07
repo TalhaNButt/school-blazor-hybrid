@@ -46,7 +46,35 @@ tests/
 - Validation errors return `400` ValidationProblem, `NotFoundException` returns `404`, and everything else returns `500` ProblemDetails (see `GlobalExceptionHandler`).
 - Multi-school support: when it's needed, add `SchoolId` to `Domain/Common/Entity.cs` plus an EF global query filter in `AppDbContext`.
 
-### Running the API
+### Quick start: whole backend in one command (Podman or Docker)
+
+`compose.yaml` starts PostgreSQL, applies EF Core migrations (a one-shot `migrations` container), then starts the API.
+The image is built from `src/Server/MyHybridApp2.Api/Containerfile`.
+
+```bash
+podman compose up --build -d      # or: docker compose up --build -d
+```
+
+| URL | What |
+|---|---|
+| http://localhost:5206/scalar | API docs / try requests |
+| http://localhost:5206/health | `Healthy` when the API can reach the database |
+| `localhost:5432` | PostgreSQL (`localuser` / `local_password`, database `school_database`) |
+
+Then run the MAUI app (F5, or `dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-windows10.0.19041.0`). It is a native app, so it runs outside containers.
+
+```bash
+podman compose logs -f api        # follow API logs
+podman compose up --build -d api  # rebuild and restart only the API after code changes
+podman compose down               # stop everything (data is kept in the pgdata volume)
+podman compose down -v            # stop and delete the database
+```
+
+To change credentials or ports, copy `.env.example` to `.env` and edit it.
+
+> If you also run the API from VS Code/`dotnet run`, stop the `api` container first (`podman compose stop api`), because both use port 5206.
+
+### Running the API without containers
 
 ```bash
 # Connection string: appsettings.Development.json has a local default. Override it with user secrets:
