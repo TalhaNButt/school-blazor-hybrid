@@ -1,0 +1,140 @@
+{
+  // Works on Windows and macOS. OS-specific details use "windows"/"osx"/"linux" overrides.
+  "version": "2.0.0",
+  "tasks": [
+    // ---------- One shortcut: Ctrl+Shift+B (Windows) / Cmd+Shift+B (Mac) ----------
+    {
+      "label": "Start everything (no debugger)",
+      "detail": "Podman backend (PostgreSQL + migrations + API), then the app: Windows desktop on Windows, Mac Catalyst on macOS",
+      "dependsOrder": "sequence",
+      "dependsOn": ["backend: up", "app: run"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+
+    // ---------- Podman ----------
+    {
+      "label": "podman: ensure running",
+      "detail": "Start the Podman machine if it is not running",
+      "type": "shell",
+      "command": "podman info >/dev/null 2>&1 || podman machine start",
+      "windows": {
+        "command": "podman info *> $null; if ($LASTEXITCODE -ne 0) { podman machine start; exit $LASTEXITCODE }",
+        "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } }
+      },
+      "linux": {
+        // Podman runs natively on Linux; there is no machine to start.
+        "command": "podman info >/dev/null"
+      },
+      "options": { "shell": { "executable": "/bin/sh", "args": ["-c"] } },
+      "problemMatcher": [],
+      "presentation": { "panel": "shared", "reveal": "silent", "group": "backend" }
+    },
+
+    // ---------- Backend in containers ----------
+    {
+      "label": "backend: up",
+      "detail": "Build and start PostgreSQL + migrations + API in Podman, then wait until the API is healthy",
+      "dependsOrder": "sequence",
+      "dependsOn": ["podman: ensure running", "backend: compose up", "backend: wait for API"],
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: compose up",
+      "type": "process",
+      "command": "podman",
+      "args": ["compose", "up", "--build", "-d"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "panel": "shared", "reveal": "silent", "group": "backend" }
+    },
+    {
+      "label": "backend: wait for API",
+      "type": "process",
+      "command": "curl",
+      "args": ["--silent", "--fail", "--retry", "60", "--retry-delay", "1", "--retry-all-errors", "http://localhost:5206/health"],
+      "problemMatcher": [],
+      "presentation": { "panel": "shared", "reveal": "silent", "group": "backend" }
+    },
+    {
+      "label": "backend: down",
+      "detail": "Stop all containers (database data is kept)",
+      "type": "process",
+      "command": "podman",
+      "args": ["compose", "down"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "backend: logs",
+      "detail": "Follow API container logs",
+      "type": "process",
+      "command": "podman",
+      "args": ["compose", "logs", "-f", "api"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+
+    // ---------- API debugged locally, database in Podman ----------
+    {
+      "label": "api: prepare local debug",
+      "detail": "Free port 5206, start PostgreSQL and apply migrations in Podman, build the API",
+      "dependsOrder": "sequence",
+      "dependsOn": ["podman: ensure running", "db: stop API container", "db: up and migrate", "api: build"],
+      "problemMatcher": []
+    },
+    {
+      "label": "db: stop API container",
+      "type": "process",
+      "command": "podman",
+      "args": ["compose", "stop", "api"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "panel": "shared", "reveal": "silent", "group": "backend" }
+    },
+    {
+      "label": "db: up and migrate",
+      "type": "process",
+      "command": "podman",
+      "args": ["compose", "run", "--rm", "--build", "migrations"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "panel": "shared", "reveal": "silent", "group": "backend" }
+    },
+    {
+      "label": "api: build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/src/Server/MyHybridApp2.Api/MyHybridApp2.Api.csproj", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "problemMatcher": "$msCompile"
+    },
+
+    // ---------- App without a debugger (no MAUI extension needed) ----------
+    {
+      "label": "app: run",
+      "detail": "Build and launch the app for this OS (Windows desktop / Mac Catalyst)",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/src/Client/MyHybridApp2/MyHybridApp2.csproj", "-t:Run", "-f", "net10.0-maccatalyst"],
+      "windows": {
+        "args": ["build", "${workspaceFolder}/src/Client/MyHybridApp2/MyHybridApp2.csproj", "-t:Run", "-f", "net10.0-windows10.0.19041.0"]
+      },
+      "linux": {
+        "args": ["build", "${workspaceFolder}/src/Client/MyHybridApp2/MyHybridApp2.csproj", "-t:Run", "-f", "net10.0-android"]
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    // ---------- Tests ----------
+    {
+      "label": "test: all",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": "$msCompile",
+      "group": "test"
+    }
+  ]
+}
