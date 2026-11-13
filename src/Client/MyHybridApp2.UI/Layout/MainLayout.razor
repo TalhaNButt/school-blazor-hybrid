@@ -1,0 +1,43 @@
+﻿@inherits LayoutComponentBase
+
+@inject IAuthenticationService AuthService
+
+<div class="page">
+    @if (AuthService.IsLoggedIn())
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+    }
+
+    <main>
+        @if (AuthService.IsLoggedIn())
+        {
+            <div class="top-row px-4">
+            @* <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a> *@
+            <button @onclick="HandleLogout" class="logout-button">
+                Logout
+            </button>
+            </div>
+        }
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        // TODO: Add logout logic here
+        // Navigate back to login
+        
+        var success = await AuthService.LogoutAsync();
+
+        if (success)
+        {
+            AuthService.NavigateToLogin();
+        }
+    }
+}

@@ -1,0 +1,22 @@
+@HostAddress = http://localhost:5206
+
+GET {{HostAddress}}/health
+
+###
+
+GET {{HostAddress}}/api/posts
+Accept: application/json
+
+###
+
+POST {{HostAddress}}/api/posts
+Content-Type: application/json
+
+{
+  "authorName": "Jane Smith",
+  "contentText": "Hello from the API #dotnet",
+  "mediaUrl": null,
+  "mediaType": null
+}
+
+###

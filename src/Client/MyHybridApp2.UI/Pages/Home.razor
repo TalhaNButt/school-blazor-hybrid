@@ -1,0 +1,208 @@
+﻿@page "/home"
+@inject IPostService PostService
+
+<PageTitle>Home</PageTitle>
+
+<div class="feed-container">
+    <!-- App Bar -->
+    <header class="feed-header">
+        <div class="header-left">
+            <button class="menu-btn" @onclick="ToggleSidebar">☰</button>
+        </div>
+        <h1 class="header-title">Feed</h1>
+        <div class="header-right">
+            <button class="notification-btn">🔔</button>
+            <img src="https://ui-avatars.com/api/?name=You&background=random" alt="Profile" class="avatar-small" />
+        </div>
+    </header>
+
+    <!-- Create Post Section -->
+    <section class="feed-create-section">
+        <CreatePost OnPostCreated="HandlePostCreated" />
+    </section>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="@AllTabClass" @onclick="SetFilterAll">All</button>
+        <button class="@FollowingTabClass" @onclick="SetFilterFollowing">Following</button>
+        <button class="@MediaTabClass" @onclick="SetFilterMedia">Media</button>
+        <button class="@FavoritesTabClass" @onclick="SetFilterFavorites">Favorites</button>
+    </div>
+
+    <!-- Posts Feed -->
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner-large"></div>
+            <p>Loading feed...</p>
+        </div>
+    }
+    else if (_posts.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h2>No posts yet</h2>
+            <p>Be the first to create a post!</p>
+        </div>
+    }
+    else
+    {
+        <div class="posts-list">
+            @foreach (var post in _filteredPosts)
+            {
+                <PostItem 
+                    Post="post" 
+                    OnPostUpdated="HandlePostUpdated"
+                    OnPostDeleted="HandlePostDeleted" />
+            }
+        </div>
+
+        <!-- Infinite Scroll Loader -->
+        @if (_hasMorePosts)
+        {
+            <div class="load-more-section">
+                <button class="load-more-btn" @onclick="LoadMorePosts" @onclick:preventDefault>
+                    @if (_isLoadingMore)
+                    {
+                        <span class="spinner-small"></span>
+                        @* Loading... *@
+                    }
+                    else
+                    {
+                        @* Load More *@
+                    }
+                </button>
+            </div>
+        }
+    }
+
+    <!-- Bottom Navigation (Mobile) -->
+    <nav class="bottom-nav">
+        <button class="nav-item active">
+            <span>🏠</span>
+            <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item">
+            <span>🔍</span>
+            <span class="nav-label">Explore</span>
+        </button>
+        <button class="nav-item nav-add-btn">
+            <span class="add-icon">+</span>
+        </button>
+        <button class="nav-item">
+            <span>❤️</span>
+            <span class="nav-label">Activity</span>
+        </button>
+        <button class="nav-item">
+            <span>👤</span>
+            <span class="nav-label">Profile</span>
+        </button>
+    </nav>
+</div>
+
+@code {
+    private List<Post> _posts = new();
+    private List<Post> _filteredPosts = new();
+    private string _activeFilter = "all";
+    private bool _isLoading = true;
+    private bool _isLoadingMore = false;
+    private bool _hasMorePosts = true;
+    private int _currentPage = 1;
+    private const int PageSize = 10;
+    private string AllTabClass => _activeFilter == "all" ? "tab active" : "tab";
+    private string FollowingTabClass => _activeFilter == "following" ? "tab active" : "tab";
+    private string MediaTabClass => _activeFilter == "media" ? "tab active" : "tab";
+    private string FavoritesTabClass => _activeFilter == "favorites" ? "tab active" : "tab";
+
+    private void SetFilterAll() => SetFilter("all");
+    private void SetFilterFollowing() => SetFilter("following");
+    private void SetFilterMedia() => SetFilter("media");
+    private void SetFilterFavorites() => SetFilter("favorites");
+
+    private void SetFilter(string filter)
+    {
+        _activeFilter = filter;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        _filteredPosts = _activeFilter switch
+        {
+            "following" => _posts.Where(p => p.AuthorName != "Current User").ToList(),
+            "media" => _posts.Where(p => p.Type != PostType.Text).ToList(),
+            "favorites" => _posts.Where(p => p.IsFavorited).ToList(),
+            _ => _posts
+        };
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        _isLoading = true;
+        _posts = await PostService.GetAllPostsAsync();
+        ApplyFilter();
+        _isLoading = false;
+    }
+
+    private async Task LoadMorePosts()
+    {
+        if (_isLoadingMore || !_hasMorePosts) return;
+
+        _isLoadingMore = true;
+        _currentPage++;
+
+        // In a real app, you'd fetch from API with pagination
+        await Task.Delay(500); // Simulate API call
+
+        _isLoadingMore = false;
+        _hasMorePosts = _currentPage < 3; // Demo: limit pages
+    }
+
+    @* private void ApplyFilter()
+    {
+        _filteredPosts = _activeFilter switch
+        {
+            "following" => _posts.Where(p => p.AuthorName != "Current User").ToList(),
+            "media" => _posts.Where(p => p.Type != PostType.Text).ToList(),
+            "favorites" => _posts.Where(p => p.IsFavorited).ToList(),
+            _ => _posts
+        };
+    } *@
+
+    private async Task HandlePostUpdated(Post updatedPost)
+    {
+        var index = _posts.FindIndex(p => p.Id == updatedPost.Id);
+        if (index >= 0)
+        {
+            _posts[index] = updatedPost;
+            ApplyFilter();
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandlePostDeleted(Post post)
+    {
+        _posts.RemoveAll(p => p.Id == post.Id);
+        ApplyFilter();
+        StateHasChanged();
+    }
+
+    private void ToggleSidebar()
+    {
+        // Open sidebar menu
+    }
+
+    private async Task HandlePostCreated(Post post)
+    {
+        _posts.Insert(0, post);
+        ApplyFilter();
+        await InvokeAsync(StateHasChanged);
+    }
+
+}

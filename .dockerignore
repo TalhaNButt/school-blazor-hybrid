@@ -1,0 +1,18 @@
+# Used by both Podman and Docker builds (build context = repo root).
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/TestResults/
+**/node_modules/
+.git/
+.env
+.env.*
+!.env.example
+
+# Not needed to build the API image
+src/Client/
+tests/
+README.md

@@ -1,0 +1,193 @@
+@inject IJSRuntime JS
+@inject IPostService PostService
+
+<article class="post-card" @onclick="HandleCardClick">
+    <!-- Header -->
+    <div class="post-header">
+        <img src="@Post.AuthorAvatarUrl ?? GetDefaultAvatar()" alt="@Post.AuthorName" class="avatar" />
+        <div class="post-meta">
+            <span class="author-name">@Post.AuthorName</span>
+            <span class="post-time">@FormatTime(Post.CreatedAt)</span>
+        </div>
+        <div class="more-options">
+            <button class="more-btn" @onclick:stopPropagation @onclick="ToggleMoreMenu">⋮</button>
+            @if (_showMoreMenu)
+            {
+                <div class="dropdown-menu" @onclick:stopPropagation>
+                    <button @onclick="EditPost">✏️ Edit</button>
+                    <button @onclick="DeletePost">🗑️ Delete</button>
+                    <button @onclick="ReportPost">⚠️ Report</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Content Text -->
+    @if (!string.IsNullOrWhiteSpace(Post.ContentText))
+    {
+        <div class="post-content-text">
+            <TextHighlighter Text="@Post.ContentText" HashtagsColor="#6d4aff" MentionsColor="#007bff" />
+        </div>
+    }
+
+    <!-- Media Content -->
+    @if (!string.IsNullOrEmpty(Post.MediaUrl))
+    {
+        @if (Post.Type == PostType.Image)
+        {
+            <div class="post-media-container">
+                <img src="@Post.MediaUrl" alt="Post content" class="post-media" loading="lazy" />
+            </div>
+        }
+        else if (Post.Type == PostType.Video)
+        {
+            <div class="post-media-container">
+                <video src="@Post.MediaUrl" class="post-media" controls playsinline preload="metadata"></video>
+            </div>
+        }
+    }
+
+    <!-- Action Buttons -->
+    <div class="post-actions" @onclick:stopPropagation>
+        <button 
+            class="action-button like-btn" 
+            @onclick="ToggleLike"
+            @onclick:preventDefault
+            aria-label="Like post">
+            <svg class="like-icon @(Post.IsLiked ? "filled" : "")" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span class="action-count @(Post.IsLiked ? "liked" : "")">@Post.LikeCount</span>
+        </button>
+
+        <button 
+            class="action-button comment-btn" 
+            aria-label="Comment">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+            <span class="action-count">Comment</span>
+        </button>
+
+        <button 
+            class="action-button share-btn" 
+            @onclick="SharePost"
+            aria-label="Share post">
+            <svg class="share-icon @(Post.IsShared ? "shared" : "")" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"/>
+                <circle cx="6" cy="12" r="3"/>
+                <circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            <span class="action-count @(Post.IsShared ? "shared" : "")">@Post.ShareCount</span>
+        </button>
+
+        <button 
+            class="action-button favorite-btn" 
+            @onclick="ToggleFavorite"
+            aria-label="Favorite post">
+            <svg class="favorite-icon @(Post.IsFavorited ? "favorited" : "")" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span class="action-count @(Post.IsFavorited ? "favorited" : "")">@Post.FavoriteCount</span>
+        </button>
+    </div>
+</article>
+
+@code {
+    [Parameter] public Post Post { get; set; } = default!;
+    [Parameter] public EventCallback<Post> OnPostUpdated { get; set; }
+    [Parameter] public EventCallback<Post> OnPostDeleted { get; set; }
+
+    private bool _showMoreMenu = false;
+
+    private string GetDefaultAvatar()
+    {
+        return $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(Post.AuthorName)}&background=random";
+    }
+
+    private string FormatTime(DateTime createdAt)
+    {
+        var now = DateTime.Now;
+        var diff = now - createdAt;
+
+        if (diff.TotalMinutes < 1)
+            return "Just now";
+        else if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m ago";
+        else if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h ago";
+        else if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays}d ago";
+        else if (diff.TotalDays < 30)
+            return $"{(int)(diff.TotalDays / 7)}w ago";
+        else
+            return $"{(int)(diff.TotalDays / 30)}mo ago";
+    }
+
+    private async Task ToggleLike()
+    {
+        await PostService.ToggleLikeAsync(Post.Id);
+        Post = await PostService.GetPostByIdAsync(Post.Id) ?? Post;
+        await OnPostUpdated.InvokeAsync(Post);
+    }
+
+    private async Task ToggleFavorite()
+    {
+        await PostService.ToggleFavoriteAsync(Post.Id);
+        Post = await PostService.GetPostByIdAsync(Post.Id) ?? Post;
+        await OnPostUpdated.InvokeAsync(Post);
+    }
+
+    private async Task SharePost()
+    {
+        var result = await PostService.SharePostAsync(Post.Id);
+        if (result)
+        {
+            // Trigger OS share sheet using JSInterop
+            try
+            {
+                await JS.InvokeVoidAsync("navigator.share", new { 
+                    title = "Check out this post!", 
+                    url = Post.MediaUrl ?? "#" 
+                });
+            }
+            catch
+            {
+                // Share sheet not available, fallback to in-app sharing
+                await Task.CompletedTask;
+            }
+        }
+        Post = await PostService.GetPostByIdAsync(Post.Id) ?? Post;
+        await OnPostUpdated.InvokeAsync(Post);
+    }
+
+    private void ToggleMoreMenu()
+    {
+        _showMoreMenu = !_showMoreMenu;
+    }
+
+    private void HandleCardClick()
+    {
+        // Expand post or open in detail view
+    }
+
+    private async Task EditPost()
+    {
+        _showMoreMenu = false;
+        // Navigate to edit page or open modal
+    }
+
+    private async Task DeletePost()
+    {
+        _showMoreMenu = false;
+        await OnPostDeleted.InvokeAsync(Post);
+    }
+
+    private void ReportPost()
+    {
+        _showMoreMenu = false;
+        // Open report dialog
+    }
+}

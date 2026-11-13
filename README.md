@@ -4,6 +4,7 @@ A comprehensive guide for setting up and running .NET MAUI Blazor Hybrid applica
 
 ## Table of Contents
 
+- [Solution Architecture](#solution-architecture)
 - [Prerequisites & Environment Setup](#prerequisites--environment-setup)
 - [Clean Build Commands](#clean-build-commands)
 - [Build and Run Commands](#build-and-run-commands)
@@ -11,6 +12,110 @@ A comprehensive guide for setting up and running .NET MAUI Blazor Hybrid applica
 - [Common Issues & Fixes](#common-issues--fixes)
 - [Quick Cheatsheet](#quick-cheatsheet)
 - [Daily Workflow](#daily-workflow)
+
+---
+
+## Solution Architecture
+
+The API follows **Clean Architecture**. The client is a thin MAUI host around a reusable Razor Class Library.
+
+```
+MyHybridApp2.slnx
+global.json · Directory.Build.props · Directory.Packages.props · .editorconfig
+src/
+  Server/
+    MyHybridApp2.Domain           entities and business rules (no dependencies)
+    MyHybridApp2.Application      use cases (handlers), validators, IAppDbContext abstraction
+    MyHybridApp2.Infrastructure   EF Core + PostgreSQL, entity configurations, migrations
+    MyHybridApp2.Api              minimal API endpoints, ProblemDetails, OpenAPI, composition root
+  Shared/
+    MyHybridApp2.Shared           API contracts (request/response DTOs) used by the API and the clients
+  Client/
+    MyHybridApp2.UI               Razor Class Library: pages, layout, typed HttpClient services
+    MyHybridApp2                  .NET MAUI host: platforms, resources, DI wiring
+tests/
+  MyHybridApp2.Application.Tests     unit tests (EF Core InMemory)
+  MyHybridApp2.Api.IntegrationTests  end-to-end API tests against PostgreSQL in Docker (Testcontainers)
+```
+
+**Dependency rule:** `Api → Infrastructure → Application → Domain`. `Application` and `UI` both depend on `Shared`, and the client never references server projects.
+
+**Conventions**
+- Every NuGet version lives in `Directory.Packages.props`. Project files list packages without versions.
+- Add a feature as `Application/<Feature>/<UseCase>.cs` (handler + validator), map it in `Api/Endpoints/<Feature>Endpoints.cs`, and register the handler in `Application/DependencyInjection.cs`.
+- Validation errors return `400` ValidationProblem, `NotFoundException` returns `404`, and everything else returns `500` ProblemDetails (see `GlobalExceptionHandler`).
+- Multi-school support: when it's needed, add `SchoolId` to `Domain/Common/Entity.cs` plus an EF global query filter in `AppDbContext`.
+
+### Quick start: whole backend in one command (Podman or Docker)
+
+`compose.yaml` starts PostgreSQL, applies EF Core migrations (a one-shot `migrations` container), then starts the API.
+The image is built from `src/Server/MyHybridApp2.Api/Containerfile`.
+
+```bash
+podman compose up --build -d      # or: docker compose up --build -d
+```
+
+| URL | What |
+|---|---|
+| http://localhost:5206/scalar | API docs / try requests |
+| http://localhost:5206/health | `Healthy` when the API can reach the database |
+| `localhost:5432` | PostgreSQL (`localuser` / `local_password`, database `school_database`) |
+
+Then run the MAUI app (F5, or `dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-windows10.0.19041.0`). It is a native app, so it runs outside containers.
+
+```bash
+podman compose logs -f api        # follow API logs
+podman compose up --build -d api  # rebuild and restart only the API after code changes
+podman compose down               # stop everything (data is kept in the pgdata volume)
+podman compose down -v            # stop and delete the database
+```
+
+To change credentials or ports, copy `.env.example` to `.env` and edit it.
+
+> If you also run the API from VS Code/`dotnet run`, stop the `api` container first (`podman compose stop api`), because both use port 5206.
+
+### Running from VS Code
+
+Install the recommended extensions (C# Dev Kit, .NET MAUI). VS Code prompts for them from `.vscode/extensions.json`. Then choose a configuration in **Run and Debug** and press **F5**:
+
+| Configuration | What starts | Use it when |
+|---|---|---|
+| **1. App + Backend (Podman)** | Podman: PostgreSQL + migrations + API (waits for `/health`), then the MAUI app under the debugger | Everyday app work |
+| **2. API (debug) + DB (Podman)** | Podman: PostgreSQL + migrations. The API runs locally under the debugger and opens `/scalar` | Debugging API code |
+| **3. Full debug: API + App** | Configuration 2 plus the MAUI app, debugging both | Tracing a request end to end |
+
+Pick the app's target platform (Windows Machine, Mac Catalyst, Android emulator, ...) in the status bar before pressing F5.
+
+**No debugger, one shortcut:** `Ctrl+Shift+B` (Windows) / `Cmd+Shift+B` (Mac) runs **Start everything**. It starts the Podman machine if needed, brings up the backend, waits for `/health`, then launches the app as a Windows desktop app or a Mac Catalyst app. It doesn't need the MAUI extension.
+
+Everything works the same on Windows and macOS. Other tasks (Terminal → Run Task): `backend: down`, `backend: logs`, `test: all`.
+
+### Running the API without containers
+
+```bash
+# Connection string: appsettings.Development.json has a local default. Override it with user secrets:
+dotnet user-secrets set "ConnectionStrings:Default" "Host=localhost;Port=5432;Database=school_database;Username=...;Password=..." --project src/Server/MyHybridApp2.Api
+
+# Apply migrations
+dotnet ef database update --project src/Server/MyHybridApp2.Infrastructure --startup-project src/Server/MyHybridApp2.Api
+
+# Add a migration
+dotnet ef migrations add <Name> --project src/Server/MyHybridApp2.Infrastructure --startup-project src/Server/MyHybridApp2.Api --output-dir Persistence/Migrations
+
+# Run (http://localhost:5206, API reference UI at /scalar, health at /health)
+dotnet run --project src/Server/MyHybridApp2.Api --launch-profile http
+```
+
+In Debug builds the MAUI app calls `http://localhost:5206` (`http://10.0.2.2:5206` on the Android emulator), so start the API first.
+
+### Tests
+
+```bash
+dotnet test                                                   # all tests (integration tests need Docker running)
+dotnet test --project tests/MyHybridApp2.Application.Tests    # unit tests only
+```
+
+> Run all commands below from the repository root. MAUI commands must name the app project (`src/Client/MyHybridApp2`): a bare `dotnet build -f net10.0-maccatalyst` applies that framework to every project in the solution and fails with NETSDK1005.
 
 ---
 
@@ -126,9 +231,9 @@ rm -rf **/obj **/bin
 dotnet restore
 
 # Build all targets
-dotnet build -f net10.0-maccatalyst
-dotnet build -f net10.0-ios
-dotnet build -f net10.0-android
+dotnet build src/Client/MyHybridApp2 -f net10.0-maccatalyst
+dotnet build src/Client/MyHybridApp2 -f net10.0-ios
+dotnet build src/Client/MyHybridApp2 -f net10.0-android
 ```
 
 ### Clean NuGet Cache (If Dependency Issues Occur)
@@ -171,13 +276,13 @@ Runs a native macOS app. No emulator needed.
 
 ```bash
 # Build only
-dotnet build -f net10.0-maccatalyst
+dotnet build src/Client/MyHybridApp2 -f net10.0-maccatalyst
 
 # Build and run
-dotnet run -f net10.0-maccatalyst
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-maccatalyst
 
 # Or in one command
-dotnet build -t:Run -f net10.0-maccatalyst
+dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-maccatalyst
 ```
 
 ### iOS Simulator
@@ -186,13 +291,13 @@ Requires Xcode 27.0 and iOS Simulator to be running.
 
 ```bash
 # Build only
-dotnet build -f net10.0-ios
+dotnet build src/Client/MyHybridApp2 -f net10.0-ios
 
 # Build and run (auto-selects available simulator)
-dotnet run -f net10.0-ios
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-ios
 
 # Specify a particular simulator
-dotnet build -t:Run -f net10.0-ios \
+dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-ios \
   -p:RuntimeIdentifier=iossimulator-arm64 \
   -p:_DeviceName="iPhone 15 Pro" \
   -p:_TargetIdiom=Simulator
@@ -207,13 +312,13 @@ Requires an Android emulator to be running (check with `adb devices`).
 
 ```bash
 # Build only
-dotnet build -f net10.0-android
+dotnet build src/Client/MyHybridApp2 -f net10.0-android
 
 # Build and run (deploys to first available emulator)
-dotnet run -f net10.0-android
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-android
 
 # Target specific emulator
-dotnet build -t:Run -f net10.0-android \
+dotnet build src/Client/MyHybridApp2 -t:Run -f net10.0-android \
   -p:AdbTarget=-s\ emulator-5554
 ```
 
@@ -231,15 +336,16 @@ dotnet build -t:Run -f net10.0-android \
 
 ```bash
 # Use Release mode for faster builds (no debugger symbols)
-dotnet build -c Release -f net10.0-maccatalyst
+dotnet build src/Client/MyHybridApp2 -c Release -f net10.0-maccatalyst
 
 # Parallel build for multiple targets
-dotnet build -f net10.0-maccatalyst -f net10.0-ios &
-dotnet build -f net10.0-android
+dotnet build src/Client/MyHybridApp2 -f net10.0-maccatalyst &
+dotnet build src/Client/MyHybridApp2 -f net10.0-ios &
+dotnet build src/Client/MyHybridApp2 -f net10.0-android
 wait
 
 # Skip specific target if not needed
-dotnet build -f net10.0-maccatalyst -p:BuildAndroid=false
+dotnet build src/Client/MyHybridApp2 -f net10.0-maccatalyst -p:BuildAndroid=false
 ```
 
 ---
@@ -287,7 +393,7 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.openjdk.jdk/Conte
 sdkmanager "platforms;android-36"
 
 # Or via dotnet target
-dotnet build -t:InstallAndroidDependencies -f net10.0-android \
+dotnet build src/Client/MyHybridApp2 -t:InstallAndroidDependencies -f net10.0-android \
   -p:AndroidSdkDirectory=$HOME/Library/Android/sdk
 ```
 
@@ -324,9 +430,9 @@ xattr -rd com.apple.quarantine /path/to/file
 
 | Goal | Command |
 |------|---------|
-| **Quick test** | `dotnet run -f net10.0-maccatalyst` |
-| **iOS test** | `dotnet run -f net10.0-ios` |
-| **Android test** | `dotnet run -f net10.0-android` |
+| **Quick test** | `dotnet run --project src/Client/MyHybridApp2 -f net10.0-maccatalyst` |
+| **iOS test** | `dotnet run --project src/Client/MyHybridApp2 -f net10.0-ios` |
+| **Android test** | `dotnet run --project src/Client/MyHybridApp2 -f net10.0-android` |
 | **Full rebuild** | `rm -rf obj bin; dotnet restore; dotnet build` |
 | **Check emulators** | `adb devices` & `xcrun simctl list devices` |
 | **Check workloads** | `dotnet workload list` |
@@ -340,13 +446,13 @@ xattr -rd com.apple.quarantine /path/to/file
 
 ```bash
 # 1. Start with macOS for fastest feedback loop
-dotnet run -f net10.0-maccatalyst
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-maccatalyst
 
 # 2. Test on iOS when making platform-specific changes
-dotnet run -f net10.0-ios
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-ios
 
 # 3. Final validation on Android
-dotnet run -f net10.0-android
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-android
 
 # 4. Clean only if you hit weird caching issues
 dotnet clean && dotnet build
@@ -365,21 +471,21 @@ rm -rf obj bin **/obj **/bin
 dotnet restore
 
 echo "=== Building All Targets ==="
-dotnet build -f net10.0-maccatalyst
-dotnet build -f net10.0-ios
-dotnet build -f net10.0-android
+dotnet build src/Client/MyHybridApp2 -f net10.0-maccatalyst
+dotnet build src/Client/MyHybridApp2 -f net10.0-ios
+dotnet build src/Client/MyHybridApp2 -f net10.0-android
 
 echo "=== Running macOS ==="
-dotnet run -f net10.0-maccatalyst &
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-maccatalyst &
 
 echo "=== Waiting 10 seconds for macOS launch ==="
 sleep 10
 
 echo "=== Run iOS (ensure Simulator is open) ==="
-dotnet run -f net10.0-ios &
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-ios &
 
 echo "=== Run Android (ensure emulator is running) ==="
-dotnet run -f net10.0-android
+dotnet run --project src/Client/MyHybridApp2 -f net10.0-android
 ```
 
 Execute with:

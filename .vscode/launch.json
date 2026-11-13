@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Everyday option: backend runs in Podman, you debug the app.
+      // Pick the platform/device (Windows, Android emulator, ...) in the status bar first.
+      "name": "1. App + Backend (Podman)",
+      "type": "maui",
+      "request": "launch",
+      "preLaunchTask": "backend: up"
+    },
+    {
+      // Debug the API itself (breakpoints in Api/Application/Infrastructure). PostgreSQL still runs in Podman.
+      "name": "2. API (debug) + DB (Podman)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "api: prepare local debug",
+      "program": "${workspaceFolder}/src/Server/MyHybridApp2.Api/bin/Debug/net10.0/MyHybridApp2.Api.dll",
+      "cwd": "${workspaceFolder}/src/Server/MyHybridApp2.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5206"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/scalar"
+      },
+      "console": "internalConsole"
+    },
+    {
+      // Used by the "Full debug" compound below; starts no backend.
+      "name": "App only",
+      "type": "maui",
+      "request": "launch"
+    }
+  ],
+  "compounds": [
+    {
+      // Breakpoints in both the API and the app at the same time.
+      "name": "3. Full debug: API + App",
+      "configurations": ["2. API (debug) + DB (Podman)", "App only"],
+      "stopAll": true
+    }
+  ]
+}

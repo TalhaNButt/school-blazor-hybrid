@@ -1,0 +1,5 @@
+{
+  "dotnet.defaultSolution": "MyHybridApp2.slnx",
+  // xunit v3 tests run on Microsoft.Testing.Platform (see global.json).
+  "dotnet.testWindow.useTestingPlatformProtocol": true
+}

@@ -1,0 +1,58 @@
+# Local backend: PostgreSQL + migrations + API.
+#   podman compose up --build -d     (or: docker compose up --build -d)
+# API: http://localhost:5206  ·  API docs: http://localhost:5206/scalar  ·  Health: http://localhost:5206/health
+# The MAUI app is a native app and runs outside containers (F5 / dotnet build -t:Run).
+
+name: myhybridapp2
+
+x-db-connection: &db-connection "Host=postgres;Port=5432;Database=${POSTGRES_DB:-school_database};Username=${POSTGRES_USER:-localuser};Password=${POSTGRES_PASSWORD:-local_password}"
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-school_database}
+      POSTGRES_USER: ${POSTGRES_USER:-localuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrations:
+    build:
+      context: .
+      dockerfile: src/Server/MyHybridApp2.Api/Containerfile
+      target: migrations
+    command: ["--connection", *db-connection]
+    environment:
+      ConnectionStrings__Default: *db-connection
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/Server/MyHybridApp2.Api/Containerfile
+      target: final
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__Default: *db-connection
+    ports:
+      - "${API_PORT:-5206}:8080"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:
