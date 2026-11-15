@@ -25,7 +25,7 @@ public sealed class AuthenticationService(NavigationManager navigationManager) :
 
     public bool IsLoggedIn() => _isLoggedIn;
 
-    public void NavigateToHome() => navigationManager.NavigateTo("/home");
+    public void NavigateToHome() => navigationManager.NavigateTo("/school-selection");
 
     public void NavigateToLogin() => navigationManager.NavigateTo("/");
 }

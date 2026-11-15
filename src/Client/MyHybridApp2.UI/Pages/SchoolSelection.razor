@@ -1,0 +1,51 @@
+@page "/school-selection"
+
+<PageTitle>Select a School</PageTitle>
+
+<div class="school-selection">
+    <header class="school-selection__header">
+        <p class="school-selection__eyebrow">WELCOME</p>
+        <h1>Choose your school</h1>
+        <p class="school-selection__intro">Select a school to continue to its community.</p>
+    </header>
+
+    @if (_schools.Length == 0)
+    {
+        <p class="school-selection__empty">No schools are available right now.</p>
+    }
+    else
+    {
+        <section class="school-grid" aria-label="Available schools">
+            @foreach (var school in _schools)
+            {
+                <a class="school-card" href="@GetSectionRoute(school)" @key="school.Id">
+                    <img class="school-card__image"
+                         src="@school.ImageUrl"
+                         alt="@($"{school.Name} campus")"
+                         loading="lazy" />
+                    <span class="school-card__details">
+                        <span class="school-card__name">@school.Name</span>
+                        <span class="school-card__arrow" aria-hidden="true">→</span>
+                    </span>
+                </a>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private readonly School[] _schools =
+    [
+        new("greenwood-high", "Greenwood High School",
+            "https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=900&q=80"),
+        new("riverside-academy", "Riverside Academy",
+            "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=900&q=80"),
+        new("oakridge-school", "Oakridge Public School",
+            "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80")
+    ];
+
+    private static string GetSectionRoute(School school) =>
+        $"/section-selection?schoolId={Uri.EscapeDataString(school.Id)}&schoolName={Uri.EscapeDataString(school.Name)}";
+
+    private sealed record School(string Id, string Name, string ImageUrl);
+}

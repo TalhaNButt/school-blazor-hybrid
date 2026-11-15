@@ -380,6 +380,17 @@ h1:focus {
     color: var(--text-primary);
 }
 
+.header-center {
+    flex: 1;
+    text-align: center;
+}
+
+.feed-selection {
+    margin: 0.2rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
 /* ===== Create Post Section ===== */
 .create-post-container {
     background: var(--background);
