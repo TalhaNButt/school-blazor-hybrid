@@ -1,0 +1,19 @@
+@using Microsoft.AspNetCore.Components
+
+<main class="placeholder-page">
+    <div class="placeholder-page__content">
+        <NavLink href="/home" class="placeholder-page__back" aria-label="Back to Feed">
+            <span aria-hidden="true">←</span>
+            Back to Feed
+        </NavLink>
+
+        <h1 class="placeholder-page__title">@Title</h1>
+    </div>
+
+    <BottomNavigation />
+</main>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+}

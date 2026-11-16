@@ -1,6 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using MyHybridApp2.UI;
 
+#if MAUI_DEVFLOW
+using Microsoft.Maui.DevFlow.Agent;
+using Microsoft.Maui.DevFlow.Blazor;
+#endif
+
 namespace MyHybridApp2;
 
 public static class MauiProgram
@@ -16,6 +21,10 @@ public static class MauiProgram
 			});
 
 		builder.Services.AddMauiBlazorWebView();
+#if MAUI_DEVFLOW
+		builder.AddMauiDevFlowAgent();
+		builder.AddMauiBlazorDevFlowTools();
+#endif
 		builder.Services.AddMyHybridApp2UI(GetApiBaseAddress());
 
 #if DEBUG

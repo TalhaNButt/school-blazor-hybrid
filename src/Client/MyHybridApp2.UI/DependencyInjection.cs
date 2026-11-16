@@ -11,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddMyHybridApp2UI(this IServiceCollection services, Uri apiBaseAddress)
     {
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IBottomNavigationService, BottomNavigationService>();
         services.AddHttpClient<IPostService, ApiPostService>(client => client.BaseAddress = apiBaseAddress);
 
         return services;

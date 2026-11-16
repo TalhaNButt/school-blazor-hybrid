@@ -1,0 +1,25 @@
+@inject IBottomNavigationService BottomNavigationService
+
+<nav class="bottom-nav" aria-label="Main navigation">
+    @foreach (var item in _items)
+    {
+        <NavLink @key="item.Id"
+                 href="@item.Route"
+                 class="nav-item"
+                 ActiveClass="active"
+                 Match="NavLinkMatch.All"
+                 aria-label="@item.Label">
+            <span aria-hidden="true">@item.Icon</span>
+            <span class="nav-label">@item.Label</span>
+        </NavLink>
+    }
+</nav>
+
+@code {
+    private IReadOnlyList<BottomNavigationItem> _items = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await BottomNavigationService.GetItemsAsync();
+    }
+}
