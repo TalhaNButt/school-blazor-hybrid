@@ -1,4 +1,5 @@
-﻿@page "/home"
+@page "/home"
+@using Microsoft.AspNetCore.Components
 @inject IPostService PostService
 
 <PageTitle>Home</PageTitle>
@@ -9,7 +10,13 @@
         <div class="header-left">
             <button class="menu-btn" @onclick="ToggleSidebar">☰</button>
         </div>
-        <h1 class="header-title">Feed</h1>
+        <div class="header-center">
+            <h1 class="header-title">Feed</h1>
+            @if (!string.IsNullOrWhiteSpace(SchoolName) && !string.IsNullOrWhiteSpace(SectionName))
+            {
+                <p class="feed-selection">@SchoolName <span aria-hidden="true">·</span> @SectionName</p>
+            }
+        </div>
         <div class="header-right">
             <button class="notification-btn">🔔</button>
             <img src="https://ui-avatars.com/api/?name=You&background=random" alt="Profile" class="avatar-small" />
@@ -101,6 +108,18 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "schoolId")]
+    public string? SchoolId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sectionId")]
+    public string? SectionId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "schoolName")]
+    public string? SchoolName { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sectionName")]
+    public string? SectionName { get; set; }
+
     private List<Post> _posts = new();
     private List<Post> _filteredPosts = new();
     private string _activeFilter = "all";

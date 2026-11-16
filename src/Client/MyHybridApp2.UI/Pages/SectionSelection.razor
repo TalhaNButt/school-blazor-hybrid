@@ -1,0 +1,102 @@
+@page "/section-selection"
+@using Microsoft.AspNetCore.Components
+
+<PageTitle>Select a Section</PageTitle>
+
+<div class="section-selection">
+    <a class="section-selection__back" href="/school-selection">
+        <span aria-hidden="true">←</span>
+        Back to schools
+    </a>
+
+    <header class="section-selection__header">
+        <p class="section-selection__eyebrow">
+            @(string.IsNullOrWhiteSpace(SchoolName) ? "SCHOOL COMMUNITY" : SchoolName)
+        </p>
+        <h1>Choose your section</h1>
+        <p class="section-selection__intro">Select a section to continue to its feed.</p>
+    </header>
+
+    @if (string.IsNullOrWhiteSpace(SchoolId))
+    {
+        <p class="section-selection__empty">Choose a school before selecting a section.</p>
+    }
+    else if (_sections.Count == 0)
+    {
+        <p class="section-selection__empty">No sections are available for this school yet.</p>
+    }
+    else
+    {
+        <section class="section-grid" aria-label="Available sections">
+            @foreach (var section in _sections)
+            {
+                <a class="section-card" href="@GetFeedRoute(section)" @key="section.Id">
+                    <img class="section-card__image"
+                         src="@section.ImageUrl"
+                         alt="@($"{section.Name} classroom")"
+                         loading="lazy" />
+                    <span class="section-card__details">
+                        <span class="section-card__name">@section.Name</span>
+                        <span class="section-card__arrow" aria-hidden="true">→</span>
+                    </span>
+                </a>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "schoolId")]
+    public string? SchoolId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "schoolName")]
+    public string? SchoolName { get; set; }
+
+    private static readonly Dictionary<string, Section[]> SectionsBySchool = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["greenwood-high"] =
+        [
+            new("grade-9-a", "Grade 9 · Section A",
+                "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=900&q=80"),
+            new("grade-9-b", "Grade 9 · Section B",
+                "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80"),
+            new("grade-10-a", "Grade 10 · Section A",
+                "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80")
+        ],
+        ["riverside-academy"] =
+        [
+            new("grade-7-a", "Grade 7 · Section A",
+                "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=900&q=80"),
+            new("grade-7-b", "Grade 7 · Section B",
+                "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80"),
+            new("grade-8-a", "Grade 8 · Section A",
+                "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80")
+        ],
+        ["oakridge-school"] =
+        [
+            new("grade-10-a", "Grade 10 · Section A",
+                "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=900&q=80"),
+            new("grade-10-b", "Grade 10 · Section B",
+                "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=900&q=80"),
+            new("grade-11-a", "Grade 11 · Section A",
+                "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80")
+        ]
+    };
+
+    private IReadOnlyList<Section> _sections = Array.Empty<Section>();
+
+    protected override void OnParametersSet()
+    {
+        _sections = SchoolId is not null && SectionsBySchool.TryGetValue(SchoolId, out var sections)
+            ? sections
+            : Array.Empty<Section>();
+    }
+
+    private string GetFeedRoute(Section section) =>
+        $"/home?schoolId={Uri.EscapeDataString(SchoolId ?? string.Empty)}" +
+        $"&sectionId={Uri.EscapeDataString(section.Id)}" +
+        $"&schoolName={Uri.EscapeDataString(SchoolName ?? string.Empty)}" +
+        $"&sectionName={Uri.EscapeDataString(section.Name)}";
+
+    private sealed record Section(string Id, string Name, string ImageUrl);
+}

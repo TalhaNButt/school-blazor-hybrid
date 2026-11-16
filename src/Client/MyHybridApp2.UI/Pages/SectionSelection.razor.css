@@ -1,0 +1,132 @@
+.section-selection {
+    box-sizing: border-box;
+    min-height: calc(100vh - 5rem);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1rem, 4vw, 2.5rem);
+    color: #172b4d;
+}
+
+.section-selection__header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.section-selection__eyebrow {
+    margin: 0 0 0.6rem;
+    color: #526a8d;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+}
+
+.section-selection__header h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+}
+
+.section-selection__intro {
+    margin: 0.75rem 0 0;
+    color: #526177;
+    font-size: 1rem;
+}
+
+.section-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 1.25rem;
+}
+
+.section-card {
+    display: block;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    color: inherit;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgb(23 43 77 / 8%);
+    transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.section-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgb(23 43 77 / 14%);
+}
+
+.section-card:focus-visible {
+    outline: 3px solid #315f9d;
+    outline-offset: 3px;
+}
+
+.section-card__image {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: #e8eef5;
+}
+
+.section-card__details {
+    display: flex;
+    min-height: 64px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+}
+
+.section-card__name {
+    font-size: 1rem;
+    font-weight: 650;
+}
+
+.section-card__arrow {
+    color: #315f9d;
+    font-size: 1.35rem;
+}
+
+.section-selection__empty {
+    padding: 2rem 1rem;
+    border: 1px dashed #9aa9bd;
+    border-radius: 12px;
+    color: #526177;
+    text-align: center;
+}
+
+.section-selection__back {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.55rem 0.95rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #315f9d;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.section-selection__back:hover {
+    border-color: #9aa9bd;
+    background: #f1f5f9;
+}
+
+.section-selection__back:focus-visible {
+    outline: 3px solid #315f9d;
+    outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .section-card {
+        transition: none;
+    }
+
+    .section-card:hover {
+        transform: none;
+    }
+}
