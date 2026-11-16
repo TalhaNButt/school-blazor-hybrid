@@ -1,6 +1,7 @@
 @page "/home"
 @using Microsoft.AspNetCore.Components
 @inject IPostService PostService
+@inject IBottomNavigationService BottomNavigationService
 
 <PageTitle>Home</PageTitle>
 
@@ -84,26 +85,14 @@
     }
 
     <!-- Bottom Navigation (Mobile) -->
-    <nav class="bottom-nav">
-        <button class="nav-item active">
-            <span>🏠</span>
-            <span class="nav-label">Home</span>
-        </button>
-        <button class="nav-item">
-            <span>🔍</span>
-            <span class="nav-label">Explore</span>
-        </button>
-        <button class="nav-item nav-add-btn">
-            <span class="add-icon">+</span>
-        </button>
-        <button class="nav-item">
-            <span>❤️</span>
-            <span class="nav-label">Activity</span>
-        </button>
-        <button class="nav-item">
-            <span>👤</span>
-            <span class="nav-label">Profile</span>
-        </button>
+    <nav class="bottom-nav" aria-label="Main navigation">
+        @foreach (var item in _bottomNavigationItems)
+        {
+            <NavLink href="@item.Route" class="nav-item" ActiveClass="active" aria-label="@item.Label">
+                <span aria-hidden="true">@item.Icon</span>
+                <span class="nav-label">@item.Label</span>
+            </NavLink>
+        }
     </nav>
 </div>
 
@@ -120,6 +109,7 @@
     [SupplyParameterFromQuery(Name = "sectionName")]
     public string? SectionName { get; set; }
 
+    private IReadOnlyList<BottomNavigationItem> _bottomNavigationItems = [];
     private List<Post> _posts = new();
     private List<Post> _filteredPosts = new();
     private string _activeFilter = "all";
@@ -158,6 +148,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _bottomNavigationItems = await BottomNavigationService.GetItemsAsync();
         await LoadPostsAsync();
     }
 
