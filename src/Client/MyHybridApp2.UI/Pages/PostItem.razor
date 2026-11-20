@@ -1,5 +1,7 @@
+@using Microsoft.Extensions.Logging
 @inject IJSRuntime JS
 @inject IPostService PostService
+@inject ILogger<PostItem> Logger
 
 <article class="post-card" @onclick="HandleCardClick">
     <!-- Header -->
@@ -62,11 +64,14 @@
 
         <button 
             class="action-button comment-btn" 
-            aria-label="Comment">
+            @onclick="ToggleComments"
+            aria-label="Show comments"
+            aria-expanded="@_showComments"
+            aria-controls="@CommentsPanelId">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
             </svg>
-            <span class="action-count">Comment</span>
+            <span class="action-count">Comments (@Post.CommentCount)</span>
         </button>
 
         <button 
@@ -93,6 +98,69 @@
             <span class="action-count @(Post.IsFavorited ? "favorited" : "")">@Post.FavoriteCount</span>
         </button>
     </div>
+
+    @if (_showComments)
+    {
+        <section class="comments-panel" id="@CommentsPanelId" @onclick:stopPropagation>
+            <h3 class="comments-title">Comments</h3>
+
+            @if (_isLoadingComments)
+            {
+                <p class="comments-status" role="status">Loading comments...</p>
+            }
+            else if (_commentsError is not null)
+            {
+                <p class="comments-error" role="alert">@_commentsError</p>
+                <button type="button" class="comments-retry" @onclick="LoadCommentsAsync">Try again</button>
+            }
+            else if (_comments.Count == 0)
+            {
+                <p class="comments-status">No comments yet. Be the first to comment.</p>
+            }
+            else
+            {
+                <div class="comment-list">
+                    @foreach (var comment in _comments)
+                    {
+                        <article class="comment-item" @key="comment.Id">
+                            <div class="comment-meta">
+                                <span class="comment-author">@comment.AuthorName</span>
+                                <time class="comment-time" datetime="@comment.CreatedAt.ToString("O")">
+                                    @FormatCommentTime(comment.CreatedAt)
+                                </time>
+                            </div>
+                            <p class="comment-content">@comment.Content</p>
+                        </article>
+                    }
+                </div>
+            }
+
+            <div class="comment-compose">
+                @if (_commentSubmitError is not null)
+                {
+                    <p class="comments-error" role="alert">@_commentSubmitError</p>
+                }
+                <label class="visually-hidden" for="@CommentInputId">Write a comment</label>
+                <textarea id="@CommentInputId"
+                          class="comment-input"
+                          @bind="_commentText"
+                          @bind:event="oninput"
+                          disabled="@(!_commentsLoaded)"
+                          maxlength="@CommentContentMaxLength"
+                          rows="2"
+                          placeholder="Write a comment..."></textarea>
+                <div class="comment-compose-actions">
+                    <span class="comment-char-count">@_commentText.Length / @CommentContentMaxLength</span>
+                    <button type="button"
+                            class="comment-submit"
+                            @onclick="SubmitCommentAsync"
+                            disabled="@(!_commentsLoaded || _isSubmittingComment || string.IsNullOrWhiteSpace(_commentText))">
+                        @(_isSubmittingComment ? "Posting..." : "Post comment")
+                    </button>
+                </div>
+            </div>
+        </section>
+    }
 </article>
 
 @code {
@@ -101,6 +169,18 @@
     [Parameter] public EventCallback<Post> OnPostDeleted { get; set; }
 
     private bool _showMoreMenu = false;
+    private bool _showComments;
+    private bool _commentsLoaded;
+    private bool _isLoadingComments;
+    private bool _isSubmittingComment;
+    private string _commentText = string.Empty;
+    private string? _commentsError;
+    private string? _commentSubmitError;
+    private List<PostCommentResponse> _comments = [];
+    private const int CommentContentMaxLength = 2000;
+    private const string CurrentUserName = "Alex Johnson";
+    private string CommentsPanelId => $"comments-{Post.Id:N}";
+    private string CommentInputId => $"comment-input-{Post.Id:N}";
 
     private string GetDefaultAvatar()
     {
@@ -124,6 +204,68 @@
             return $"{(int)(diff.TotalDays / 7)}w ago";
         else
             return $"{(int)(diff.TotalDays / 30)}mo ago";
+    }
+
+    private static string FormatCommentTime(DateTimeOffset createdAt) =>
+        createdAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+
+    private async Task ToggleComments()
+    {
+        _showComments = !_showComments;
+        if (_showComments)
+        {
+            await LoadCommentsAsync();
+        }
+    }
+
+    private async Task LoadCommentsAsync()
+    {
+        _isLoadingComments = true;
+        _commentsLoaded = false;
+        _commentsError = null;
+        try
+        {
+            _comments = await PostService.GetPostCommentsAsync(Post.Id);
+            Post.CommentCount = _comments.Count;
+            _commentsLoaded = true;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to load comments for post {PostId}", Post.Id);
+            _commentsError = "Comments could not be loaded. Please try again.";
+        }
+        finally
+        {
+            _isLoadingComments = false;
+        }
+    }
+
+    private async Task SubmitCommentAsync()
+    {
+        if (_isSubmittingComment || string.IsNullOrWhiteSpace(_commentText))
+        {
+            return;
+        }
+
+        _isSubmittingComment = true;
+        _commentSubmitError = null;
+        try
+        {
+            var request = new CreatePostCommentRequest(CurrentUserName, _commentText.Trim());
+            var created = await PostService.CreatePostCommentAsync(Post.Id, request);
+            _comments.Add(created);
+            Post.CommentCount = _comments.Count;
+            _commentText = string.Empty;
+        }
+        catch (HttpRequestException exception)
+        {
+            Logger.LogError(exception, "Failed to add a comment to post {PostId}", Post.Id);
+            _commentSubmitError = "Your comment could not be posted. Please try again.";
+        }
+        finally
+        {
+            _isSubmittingComment = false;
+        }
     }
 
     private async Task ToggleLike()

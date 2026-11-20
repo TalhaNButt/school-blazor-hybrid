@@ -17,10 +17,22 @@ public sealed record PostResponse(
     DateTime CreatedAt,
     int LikeCount,
     int ShareCount,
-    int FavoriteCount);
+    int FavoriteCount,
+    int CommentCount = 0);
 
 public sealed record CreatePostRequest(
     string AuthorName,
     string? ContentText,
     string? MediaUrl,
     string? MediaType);
+
+/// <summary>Payload for adding a comment to a post.</summary>
+public sealed record CreatePostCommentRequest(string AuthorName, string Content);
+
+/// <summary>A comment attached to a post.</summary>
+public sealed record PostCommentResponse(
+    Guid Id,
+    Guid PostId,
+    string AuthorName,
+    string Content,
+    DateTimeOffset CreatedAt);

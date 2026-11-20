@@ -9,6 +9,7 @@ Accept: application/json
 
 ###
 
+# @name createPost
 POST {{HostAddress}}/api/posts
 Content-Type: application/json
 
@@ -20,3 +21,25 @@ Content-Type: application/json
 }
 
 ###
+
+### Get comments for the created post
+GET {{HostAddress}}/api/posts/{{createPost.response.body.$.id}}/comments
+Accept: application/json
+
+###
+
+### Add a comment to the created post
+# @name createComment
+POST {{HostAddress}}/api/posts/{{createPost.response.body.$.id}}/comments
+Content-Type: application/json
+
+{
+  "authorName": "Alex Johnson",
+  "content": "This is a comment on the post."
+}
+
+###
+
+### Get the created comment
+GET {{HostAddress}}/api/posts/{{createPost.response.body.$.id}}/comments/{{createComment.response.body.$.id}}
+Accept: application/json

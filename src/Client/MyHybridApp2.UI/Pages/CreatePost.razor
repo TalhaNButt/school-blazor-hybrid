@@ -3,12 +3,32 @@
 
 <div class="create-post-container">
     <div class="create-post-header">
-        <img src="@AvatarUrl" alt="Your avatar" class="avatar-small" />
         <div class="input-wrapper">
             <textarea @bind="_contentText" @bind:event="oninput"
                       placeholder="What's on your mind?"
                       class="post-textarea" rows="2" maxlength="500"></textarea>
         </div>
+        <button type="button" class="publish-btn @(_isPublishing ? "is-publishing" : string.Empty)"
+                @onclick="HandlePublish"
+                aria-label="Publish post"
+                aria-busy="@_isPublishing"
+                disabled="@(!CanPublish)">
+            @if (_isPublishing)
+            {
+                <span class="spinner-small"></span>
+                <span>Publishing...</span>
+            }
+            else
+            {
+                <svg class="publish-icon" xmlns="http://www.w3.org/2000/svg"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true">
+                    <path d="M20.24 12.24a6 6 0 0 0-8.48-8.48L3 12.5V21h8.5Z" />
+                    <path d="M16 8 2 22m15.5-7H9M10 17.5V9" />
+                </svg>
+            }
+        </button>
     </div>
 
     @if (!string.IsNullOrEmpty(_mediaPreviewUrl))
@@ -29,23 +49,26 @@
 
     <div class="create-post-actions">
         <div class="action-buttons">
-            <button type="button" class="action-btn image-btn" @onclick="SelectImage">Photo</button>
-            <button type="button" class="action-btn video-btn" @onclick="SelectVideo">Video</button>
+            <button type="button" class="action-btn image-btn" @onclick="SelectImage"
+                    aria-label="Add photo" title="Add photo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="3" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="m21 15-5-5L5 21" />
+                </svg>
+            </button>
+            <button type="button" class="action-btn video-btn" @onclick="SelectVideo"
+                    aria-label="Add video" title="Add video">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                     aria-hidden="true">
+                    <rect x="3" y="6" width="13" height="12" rx="2" />
+                    <path d="m16 10 5-3v10l-5-3" />
+                </svg>
+            </button>
         </div>
-
-        <button type="button" class="publish-btn"
-                @onclick="HandlePublish"
-                disabled="@(!CanPublish)">
-            @if (_isPublishing)
-            {
-                <span class="spinner-small"></span>
-                <span>Publishing...</span>
-            }
-            else
-            {
-                <span>Publish</span>
-            }
-        </button>
     </div>
 </div>
 
