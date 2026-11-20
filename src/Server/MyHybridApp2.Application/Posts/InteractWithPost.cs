@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using MyHybridApp2.Application.Abstractions;
 using MyHybridApp2.Application.Common;
 using MyHybridApp2.Domain.Posts;
@@ -35,6 +36,7 @@ public sealed class InteractWithPost(IAppDbContext db)
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        return post.ToResponse();
+        var commentCount = await db.PostComments.CountAsync(comment => comment.PostId == id, cancellationToken);
+        return post.ToResponse(commentCount);
     }
 }

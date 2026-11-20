@@ -7,20 +7,16 @@
 <div class="feed-container">
     <!-- App Bar -->
     <header class="feed-header">
-        <div class="header-left">
-            <button class="menu-btn" @onclick="ToggleSidebar">☰</button>
-        </div>
-        <div class="header-center">
-            <h1 class="header-title">Feed</h1>
-            @if (!string.IsNullOrWhiteSpace(SchoolName) && !string.IsNullOrWhiteSpace(SectionName))
-            {
-                <p class="feed-selection">@SchoolName <span aria-hidden="true">·</span> @SectionName</p>
-            }
-        </div>
-        <div class="header-right">
-            <button class="notification-btn">🔔</button>
-            <img src="https://ui-avatars.com/api/?name=You&background=random" alt="Profile" class="avatar-small" />
-        </div>
+        @if (!string.IsNullOrWhiteSpace(SchoolName) && !string.IsNullOrWhiteSpace(SectionName))
+        {
+            <p class="feed-selection">@SchoolName <span aria-hidden="true">·</span> @SectionName</p>
+        }
+        @if (IsMobilePlatform)
+        {
+            <div class="header-left">
+                <button class="menu-btn" @onclick="ToggleSidebar">☰</button>
+            </div>
+        }
     </header>
 
     <!-- Create Post Section -->
@@ -44,12 +40,27 @@
             <p>Loading feed...</p>
         </div>
     }
-    else if (_posts.Count == 0)
+    else if (_filteredPosts.Count == 0)
     {
         <div class="empty-state">
-            <div class="empty-icon">📝</div>
-            <h2>No posts yet</h2>
-            <p>Be the first to create a post!</p>
+            @if (_posts.Count == 0)
+            {
+                <div class="empty-icon">📝</div>
+                <h2>No posts yet</h2>
+                <p>Be the first to create a post!</p>
+            }
+            else if (_activeFilter == "favorites")
+            {
+                <div class="empty-icon">⭐</div>
+                <h2>No favorites yet</h2>
+                <p>Posts you favorite will appear here.</p>
+            }
+            else
+            {
+                <div class="empty-icon">🔎</div>
+                <h2>No posts match this filter</h2>
+                <p>Try another feed filter.</p>
+            }
         </div>
     }
     else
@@ -107,6 +118,9 @@
     private bool _hasMorePosts = true;
     private int _currentPage = 1;
     private const int PageSize = 10;
+    private bool IsMobilePlatform =>
+        OperatingSystem.IsAndroid() ||
+        (OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst());
     private string AllTabClass => _activeFilter == "all" ? "tab active" : "tab";
     private string FollowingTabClass => _activeFilter == "following" ? "tab active" : "tab";
     private string MediaTabClass => _activeFilter == "media" ? "tab active" : "tab";

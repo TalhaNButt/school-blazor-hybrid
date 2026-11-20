@@ -65,6 +65,18 @@ public sealed class ApiPostService(HttpClient http) : IPostService
         return true;
     }
 
+    public async Task<List<PostCommentResponse>> GetPostCommentsAsync(Guid postId) =>
+        await http.GetFromJsonAsync<List<PostCommentResponse>>($"{BasePath}/{postId}/comments") ?? [];
+
+    public async Task<PostCommentResponse> CreatePostCommentAsync(Guid postId, CreatePostCommentRequest request)
+    {
+        using var response = await http.PostAsJsonAsync($"{BasePath}/{postId}/comments", request);
+        response.EnsureSuccessStatusCode();
+
+        return await response.Content.ReadFromJsonAsync<PostCommentResponse>()
+            ?? throw new InvalidOperationException("The API returned an empty comment response.");
+    }
+
     private async Task ToggleAsync(Guid postId, HashSet<Guid> state, string action)
     {
         var isOn = state.Contains(postId);
@@ -97,6 +109,7 @@ public sealed class ApiPostService(HttpClient http) : IPostService
         LikeCount = response.LikeCount,
         ShareCount = response.ShareCount,
         FavoriteCount = response.FavoriteCount,
+        CommentCount = response.CommentCount,
         IsLiked = _liked.Contains(response.Id),
         IsFavorited = _favorited.Contains(response.Id),
         IsShared = _shared.Contains(response.Id)

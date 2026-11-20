@@ -14,6 +14,9 @@ public static class DependencyInjection
         services.AddScoped<GetPosts>();
         services.AddScoped<GetPostById>();
         services.AddScoped<CreatePost>();
+        services.AddScoped<GetPostComments>();
+        services.AddScoped<GetPostCommentById>();
+        services.AddScoped<CreatePostComment>();
         services.AddScoped<InteractWithPost>();
 
         return services;

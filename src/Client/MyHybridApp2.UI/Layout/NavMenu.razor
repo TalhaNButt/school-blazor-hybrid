@@ -4,9 +4,16 @@
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<input type="checkbox" title="Navigation menu"
+       class="navbar-toggler @(IsMobilePlatform ? string.Empty : "navbar-toggler-hidden")" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+<div class="nav-scrollable @(!IsMobilePlatform ? "nav-always-visible" : string.Empty)"
+     onclick="document.querySelector('.navbar-toggler').click()">
+    <div class="nav-user">
+        <img src="https://ui-avatars.com/api/?name=Alex+Johnson&background=random"
+             alt="Alex Johnson" class="nav-user-avatar" />
+        <span class="nav-user-name">Alex Johnson</span>
+    </div>
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
@@ -15,3 +22,9 @@
         </div>
     </nav>
 </div>
+
+@code {
+    private bool IsMobilePlatform =>
+        OperatingSystem.IsAndroid() ||
+        (OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst());
+}

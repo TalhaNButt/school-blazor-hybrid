@@ -6,6 +6,7 @@ namespace MyHybridApp2.Application.Abstractions;
 public interface IAppDbContext
 {
     DbSet<Post> Posts { get; }
+    DbSet<PostComment> PostComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
