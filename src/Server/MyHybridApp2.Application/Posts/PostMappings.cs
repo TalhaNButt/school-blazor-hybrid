@@ -5,7 +5,7 @@ namespace MyHybridApp2.Application.Posts;
 
 internal static class PostMappings
 {
-    public static PostResponse ToResponse(this Post post) => new(
+    public static PostResponse ToResponse(this Post post, int commentCount = 0) => new(
         post.Id,
         post.AuthorName,
         GetPostType(post.MediaType),
@@ -15,7 +15,8 @@ internal static class PostMappings
         post.CreatedAt,
         post.LikeCount,
         post.ShareCount,
-        post.FavoriteCount);
+        post.FavoriteCount,
+        commentCount);
 
     private static PostType GetPostType(string? mediaType) => mediaType switch
     {

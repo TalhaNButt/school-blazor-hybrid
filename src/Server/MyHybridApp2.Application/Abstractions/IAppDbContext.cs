@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using MyHybridApp2.Domain.Calendar;
 using MyHybridApp2.Domain.Posts;
 
 namespace MyHybridApp2.Application.Abstractions;
 
 public interface IAppDbContext
 {
+    DbSet<CalendarEvent> CalendarEvents { get; }
     DbSet<Post> Posts { get; }
+    DbSet<PostComment> PostComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -18,6 +18,7 @@ public sealed class Post
     public int LikeCount { get; set; }
     public int ShareCount { get; set; }
     public int FavoriteCount { get; set; }
+    public int CommentCount { get; set; }
     public bool IsLiked { get; set; }
     public bool IsFavorited { get; set; }
     public bool IsShared { get; set; }
