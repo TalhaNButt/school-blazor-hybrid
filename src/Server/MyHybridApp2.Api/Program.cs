@@ -28,6 +28,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");
+app.MapCalendarEventEndpoints();
 app.MapPostEndpoints();
 
 app.Run();

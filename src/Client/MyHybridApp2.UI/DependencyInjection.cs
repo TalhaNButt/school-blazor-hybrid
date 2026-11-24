@@ -12,6 +12,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IBottomNavigationService, BottomNavigationService>();
+        services.AddHttpClient<ICalendarEventStore, ApiCalendarEventStore>(client => client.BaseAddress = apiBaseAddress);
         services.AddHttpClient<ApiPostService>(client => client.BaseAddress = apiBaseAddress);
         services.AddScoped<IPostService>(serviceProvider => serviceProvider.GetRequiredService<ApiPostService>());
 
