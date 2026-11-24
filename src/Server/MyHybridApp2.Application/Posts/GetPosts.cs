@@ -13,9 +13,14 @@ public sealed class GetPosts(IAppDbContext db)
         var posts = await db.Posts
             .AsNoTracking()
             .OrderByDescending(p => p.CreatedAt)
+            .Select(post => new
+            {
+                Post = post,
+                CommentCount = db.PostComments.Count(comment => comment.PostId == post.Id)
+            })
             .ToListAsync(cancellationToken);
 
-        return posts.Select(p => p.ToResponse()).ToList();
+        return posts.Select(result => result.Post.ToResponse(result.CommentCount)).ToList();
     }
 }
 
@@ -23,9 +28,17 @@ public sealed class GetPostById(IAppDbContext db)
 {
     public async Task<PostResponse> HandleAsync(Guid id, CancellationToken cancellationToken)
     {
-        var post = await db.Posts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+        var result = await db.Posts
+            .AsNoTracking()
+            .Where(post => post.Id == id)
+            .Select(post => new
+            {
+                Post = post,
+                CommentCount = db.PostComments.Count(comment => comment.PostId == post.Id)
+            })
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException(nameof(Post), id);
 
-        return post.ToResponse();
+        return result.Post.ToResponse(result.CommentCount);
     }
 }

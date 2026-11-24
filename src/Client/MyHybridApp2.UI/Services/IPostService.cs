@@ -1,4 +1,5 @@
 using MyHybridApp2.UI.Models;
+using MyHybridApp2.Shared.Posts;
 
 namespace MyHybridApp2.UI.Services;
 
@@ -10,4 +11,6 @@ public interface IPostService
     Task ToggleLikeAsync(Guid postId);
     Task ToggleFavoriteAsync(Guid postId);
     Task<bool> SharePostAsync(Guid postId);
+    Task<List<PostCommentResponse>> GetPostCommentsAsync(Guid postId);
+    Task<PostCommentResponse> CreatePostCommentAsync(Guid postId, CreatePostCommentRequest request);
 }

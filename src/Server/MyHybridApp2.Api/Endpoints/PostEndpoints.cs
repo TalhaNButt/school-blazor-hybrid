@@ -23,6 +23,33 @@ internal static class PostEndpoints
             .WithName("CreatePost")
             .ProducesValidationProblem();
 
+        posts.MapGet("/{postId:guid}/comments", (Guid postId, GetPostComments handler, CancellationToken ct) =>
+                handler.HandleAsync(postId, ct))
+            .WithName("GetPostComments")
+            .WithSummary("Get comments for a post")
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        posts.MapGet("/{postId:guid}/comments/{commentId:guid}",
+                (Guid postId, Guid commentId, GetPostCommentById handler, CancellationToken ct) =>
+                    handler.HandleAsync(postId, commentId, ct))
+            .WithName("GetPostCommentById")
+            .WithSummary("Get a comment by ID")
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        posts.MapPost("/{postId:guid}/comments",
+                async (Guid postId, CreatePostCommentRequest request, CreatePostComment handler, CancellationToken ct) =>
+                {
+                    var comment = await handler.HandleAsync(postId, request, ct);
+                    return TypedResults.CreatedAtRoute(
+                        comment,
+                        "GetPostCommentById",
+                        new { postId, commentId = comment.Id });
+                })
+            .WithName("CreatePostComment")
+            .WithSummary("Add a comment to a post")
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         MapInteraction(posts, "/{id:guid}/like", PostInteraction.Like, isPost: true);
         MapInteraction(posts, "/{id:guid}/like", PostInteraction.Unlike, isPost: false);
         MapInteraction(posts, "/{id:guid}/favorite", PostInteraction.Favorite, isPost: true);

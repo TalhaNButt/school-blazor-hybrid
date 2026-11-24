@@ -1,5 +1,530 @@
 @page "/calendar"
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using MyHybridApp2.UI.Models
+@inject ICalendarEventStore EventStore
 
 <PageTitle>Calendar</PageTitle>
 
-<PlaceholderNavigationPage Title="Calendar" />
+<main class="calendar-page">
+    <header class="calendar-header">
+        <div>
+            <p class="calendar-eyebrow">YOUR SCHOOL, AT A GLANCE</p>
+            <h1>Calendar</h1>
+            <p class="calendar-subtitle">Keep track of classes, exams, and everything in between.</p>
+        </div>
+        <button class="calendar-primary-button" type="button" @onclick="() => OpenCreateEvent()">
+            <span aria-hidden="true">+</span>
+            Add event
+        </button>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="calendar-alert" role="alert">@_errorMessage</div>
+    }
+
+    <section class="calendar-toolbar" aria-label="Calendar controls">
+        <div class="calendar-month-controls">
+            <button type="button" class="calendar-icon-button" aria-label="Previous month" @onclick="ShowPreviousMonth">‹</button>
+            <h2>@_displayedMonth.ToString("MMMM yyyy")</h2>
+            <button type="button" class="calendar-icon-button" aria-label="Next month" @onclick="ShowNextMonth">›</button>
+            <button type="button" class="calendar-today-button" @onclick="ShowToday">Today</button>
+        </div>
+        <div class="calendar-view-switch" role="group" aria-label="Calendar view">
+            <button type="button" class="@(_isAgendaView ? string.Empty : "selected")" aria-pressed="@(!_isAgendaView)" @onclick="() => _isAgendaView = false">Month</button>
+            <button type="button" class="@(_isAgendaView ? "selected" : string.Empty)" aria-pressed="@_isAgendaView" @onclick="() => _isAgendaView = true">Agenda</button>
+        </div>
+    </section>
+
+    @if (_isLoading)
+    {
+        <div class="calendar-loading" role="status">Loading your events…</div>
+    }
+    else
+    {
+        <div class="calendar-content">
+            <section class="calendar-main-panel" aria-label="@($"{_displayedMonth:MMMM yyyy} events")">
+                @if (_isAgendaView)
+                {
+                    <div class="calendar-agenda">
+                        @if (EventsInDisplayedMonth.Count == 0)
+                        {
+                            <div class="calendar-empty">
+                                <span aria-hidden="true">🗓️</span>
+                                <h3>No events this month</h3>
+                                <p>Add an event and it will show up here.</p>
+                                <button type="button" class="calendar-secondary-button" @onclick="() => OpenCreateEvent()">Add an event</button>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var dayGroup in EventsInDisplayedMonth.GroupBy(item => item.StartsAt.Date).OrderBy(group => group.Key))
+                            {
+                                <section class="agenda-day" @key="dayGroup.Key">
+                                    <h3>@dayGroup.Key.ToString("dddd, MMMM d")</h3>
+                                    @foreach (var calendarEvent in dayGroup.OrderBy(item => item.StartsAt))
+                                    {
+                                        <button type="button" class="agenda-event @GetCategoryClass(calendarEvent.Category)" @onclick="() => OpenEditEvent(calendarEvent)">
+                                            <span class="agenda-event__time">@calendarEvent.StartsAt.ToString("h:mm tt")</span>
+                                            <span class="agenda-event__details">
+                                                <strong>@calendarEvent.Title</strong>
+                                                <span>@calendarEvent.Category · @calendarEvent.Location</span>
+                                            </span>
+                                            <span class="agenda-event__arrow" aria-hidden="true">›</span>
+                                        </button>
+                                    }
+                                </section>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="calendar-grid" role="grid" aria-label="@($"{_displayedMonth:MMMM yyyy} calendar")">
+                        @foreach (var weekday in Weekdays)
+                        {
+                            <div class="calendar-weekday" role="columnheader">@weekday</div>
+                        }
+                        @foreach (var date in CalendarDays)
+                        {
+                            var dayEvents = GetEventsForDate(date);
+                            <button @key="date"
+                                    type="button"
+                                    role="gridcell"
+                                    class="@GetDayClass(date)"
+                                    aria-label="@GetDayLabel(date, dayEvents.Count)"
+                                    aria-pressed="@(date == _selectedDate)"
+                                    @onclick="() => SelectDate(date)">
+                                <span class="calendar-day-number">@date.Day</span>
+                                <span class="calendar-day-events">
+                                    @foreach (var calendarEvent in dayEvents.Take(2))
+                                    {
+                                        <span class="calendar-event-chip @GetCategoryClass(calendarEvent.Category)">@calendarEvent.Title</span>
+                                    }
+                                    @if (dayEvents.Count > 2)
+                                    {
+                                        <span class="calendar-more-events">+@(dayEvents.Count - 2) more</span>
+                                    }
+                                </span>
+                                @if (dayEvents.Count > 0)
+                                {
+                                    <span class="calendar-mobile-event-count">@dayEvents.Count event@(dayEvents.Count == 1 ? string.Empty : "s")</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+
+            <aside class="calendar-day-panel" aria-label="@($"{_selectedDate:MMMM d} schedule")">
+                <div class="calendar-day-panel__header">
+                    <div>
+                        <p>@_selectedDate.ToString("dddd")</p>
+                        <h2>@_selectedDate.ToString("MMMM d")</h2>
+                    </div>
+                    <button type="button" class="calendar-icon-button calendar-add-day-button" aria-label="Add event on selected day" @onclick="() => OpenCreateEvent(_selectedDate)">+</button>
+                </div>
+
+                @if (GetEventsForDate(_selectedDate).Count == 0)
+                {
+                    <div class="calendar-day-empty">
+                        <span aria-hidden="true">☀️</span>
+                        <p>Your day is clear.</p>
+                        <button type="button" class="calendar-text-button" @onclick="() => OpenCreateEvent(_selectedDate)">Add an event</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="selected-day-events">
+                        @foreach (var calendarEvent in GetEventsForDate(_selectedDate))
+                        {
+                            <article @key="calendarEvent.Id" class="selected-day-event @GetCategoryClass(calendarEvent.Category)">
+                                <div class="selected-day-event__time">
+                                    @calendarEvent.StartsAt.ToString("h:mm tt") – @calendarEvent.EndsAt.ToString("h:mm tt")
+                                </div>
+                                <h3>@calendarEvent.Title</h3>
+                                @if (!string.IsNullOrWhiteSpace(calendarEvent.Location))
+                                {
+                                    <p class="selected-day-event__location">⌖ @calendarEvent.Location</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(calendarEvent.Description))
+                                {
+                                    <p class="selected-day-event__description">@calendarEvent.Description</p>
+                                }
+                                <div class="selected-day-event__footer">
+                                    <span>@calendarEvent.Category</span>
+                                    <span>@GetReminderLabel(calendarEvent.ReminderMinutesBefore)</span>
+                                </div>
+                                <div class="selected-day-event__actions">
+                                    <button type="button" @onclick="() => OpenEditEvent(calendarEvent)">Edit</button>
+                                    @if (_confirmDeleteId == calendarEvent.Id)
+                                    {
+                                        <span>Delete this event?</span>
+                                        <button type="button" class="delete-confirm-button" @onclick="() => DeleteEventAsync(calendarEvent)">Delete</button>
+                                        <button type="button" @onclick="CancelDelete">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="delete-link" @onclick="() => RequestDelete(calendarEvent.Id)">Delete</button>
+                                    }
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+            </aside>
+        </div>
+    }
+
+    <p class="calendar-reminder-note">Reminder preferences are saved with each event. Device notifications can be connected when the notification service is added.</p>
+
+    @if (_isEditing)
+    {
+        <div class="calendar-modal-backdrop">
+            <section class="calendar-modal" role="dialog" aria-modal="true" aria-labelledby="event-dialog-title">
+                <header class="calendar-modal__header">
+                    <div>
+                        <p class="calendar-eyebrow">YOUR SCHEDULE</p>
+                        <h2 id="event-dialog-title">@(_editingEventId is null ? "Add an event" : "Edit event")</h2>
+                    </div>
+                    <button type="button" class="calendar-icon-button" aria-label="Close event form" @onclick="CloseEditor">×</button>
+                </header>
+
+                <EditForm Model="_draft" OnValidSubmit="SaveEventAsync">
+                    <DataAnnotationsValidator />
+                    <div class="calendar-form-grid">
+                        <label class="calendar-form-field calendar-form-field--full">
+                            <span>Event name</span>
+                            <InputText @bind-Value="_draft.Title" maxlength="100" placeholder="e.g. Science exam" />
+                            <ValidationMessage For="@(() => _draft.Title)" />
+                        </label>
+
+                        <label class="calendar-form-field">
+                            <span>Date</span>
+                            <InputDate @bind-Value="_draftDate" />
+                        </label>
+                        <label class="calendar-form-field">
+                            <span>Category</span>
+                            <InputSelect @bind-Value="_draft.Category">
+                                @foreach (var category in Categories)
+                                {
+                                    <option value="@category">@category</option>
+                                }
+                            </InputSelect>
+                        </label>
+                        <label class="calendar-form-field">
+                            <span>Starts</span>
+                            <input type="time" value="@_draftStartTime" @onchange="SetDraftStartTime" required />
+                        </label>
+                        <label class="calendar-form-field">
+                            <span>Ends</span>
+                            <input type="time" value="@_draftEndTime" @onchange="SetDraftEndTime" required />
+                        </label>
+                        <label class="calendar-form-field calendar-form-field--full">
+                            <span>Location <span class="calendar-optional">(optional)</span></span>
+                            <InputText @bind-Value="_draft.Location" maxlength="100" placeholder="Room or meeting place" />
+                        </label>
+                        <label class="calendar-form-field calendar-form-field--full">
+                            <span>Notes <span class="calendar-optional">(optional)</span></span>
+                            <InputTextArea @bind-Value="_draft.Description" rows="3" maxlength="500" placeholder="Add any useful details" />
+                        </label>
+                        <label class="calendar-form-field calendar-form-field--full">
+                            <span>Reminder</span>
+                            <InputSelect @bind-Value="_draft.ReminderMinutesBefore">
+                                <option value="0">No reminder</option>
+                                <option value="5">5 minutes before</option>
+                                <option value="15">15 minutes before</option>
+                                <option value="30">30 minutes before</option>
+                                <option value="60">1 hour before</option>
+                                <option value="1440">1 day before</option>
+                            </InputSelect>
+                        </label>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_formError))
+                    {
+                        <p class="calendar-form-error" role="alert">@_formError</p>
+                    }
+
+                    <footer class="calendar-modal__actions">
+                        <button type="button" class="calendar-secondary-button" @onclick="CloseEditor">Cancel</button>
+                        <button type="submit" class="calendar-primary-button">Save event</button>
+                    </footer>
+                </EditForm>
+            </section>
+        </div>
+    }
+
+    <BottomNavigation />
+</main>
+
+@code {
+    private static readonly string[] Weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    private static readonly string[] Categories = ["Class", "Exam", "Activity", "Meeting"];
+    private readonly List<CalendarEvent> _events = [];
+    private DateTime _displayedMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _selectedDate = DateTime.Today.Date;
+    private DateTime _draftDate = DateTime.Today.Date;
+    private string _draftStartTime = "09:00";
+    private string _draftEndTime = "10:00";
+    private CalendarEventDraft _draft = new();
+    private Guid? _editingEventId;
+    private Guid? _confirmDeleteId;
+    private string? _errorMessage;
+    private string? _formError;
+    private bool _isAgendaView;
+    private bool _isEditing;
+    private bool _isLoading = true;
+
+    private IEnumerable<DateTime> CalendarDays
+    {
+        get
+        {
+            var firstDay = new DateTime(_displayedMonth.Year, _displayedMonth.Month, 1);
+            var mondayOffset = ((int)firstDay.DayOfWeek + 6) % 7;
+            var gridStart = firstDay.AddDays(-mondayOffset);
+            return Enumerable.Range(0, 42).Select(offset => gridStart.AddDays(offset));
+        }
+    }
+
+    private List<CalendarEvent> EventsInDisplayedMonth =>
+        _events.Where(calendarEvent =>
+                calendarEvent.StartsAt.Year == _displayedMonth.Year &&
+                calendarEvent.StartsAt.Month == _displayedMonth.Month)
+            .OrderBy(calendarEvent => calendarEvent.StartsAt)
+            .ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _events.AddRange(await EventStore.GetAllAsync());
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private IReadOnlyList<CalendarEvent> GetEventsForDate(DateTime date) =>
+        _events.Where(calendarEvent => calendarEvent.StartsAt.Date <= date.Date && calendarEvent.EndsAt.Date >= date.Date)
+            .OrderBy(calendarEvent => calendarEvent.StartsAt)
+            .ToList();
+
+    private string GetDayClass(DateTime date)
+    {
+        var classes = new List<string> { "calendar-day" };
+        if (date.Month != _displayedMonth.Month)
+        {
+            classes.Add("calendar-day--outside");
+        }
+
+        if (date.Date == _selectedDate.Date)
+        {
+            classes.Add("calendar-day--selected");
+        }
+
+        if (date.Date == DateTime.Today)
+        {
+            classes.Add("calendar-day--today");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private static string GetDayLabel(DateTime date, int eventCount) =>
+        $"{date:dddd, MMMM d}: {eventCount} event{(eventCount == 1 ? string.Empty : "s")}";
+
+    private static string GetCategoryClass(string category) => category switch
+    {
+        "Exam" => "category-exam",
+        "Activity" => "category-activity",
+        "Meeting" => "category-meeting",
+        _ => "category-class"
+    };
+
+    private static string GetReminderLabel(int minutesBefore) => minutesBefore switch
+    {
+        0 => "No reminder",
+        60 => "Reminder · 1 hour before",
+        1440 => "Reminder · 1 day before",
+        _ => $"Reminder · {minutesBefore} min before"
+    };
+
+    private void SelectDate(DateTime date)
+    {
+        _selectedDate = date.Date;
+        _displayedMonth = new DateTime(date.Year, date.Month, 1);
+    }
+
+    private void ShowPreviousMonth() => ChangeMonth(-1);
+    private void ShowNextMonth() => ChangeMonth(1);
+
+    private void ChangeMonth(int months)
+    {
+        _displayedMonth = _displayedMonth.AddMonths(months);
+        _selectedDate = new DateTime(_displayedMonth.Year, _displayedMonth.Month, 1);
+    }
+
+    private void ShowToday()
+    {
+        _selectedDate = DateTime.Today;
+        _displayedMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    }
+
+    private void OpenCreateEvent() => OpenCreateEvent(_selectedDate);
+
+    private void OpenCreateEvent(DateTime date)
+    {
+        _editingEventId = null;
+        _draft = new CalendarEventDraft();
+        _draftDate = date.Date;
+        _draftStartTime = "09:00";
+        _draftEndTime = "10:00";
+        _formError = null;
+        _isEditing = true;
+    }
+
+    private void OpenEditEvent(CalendarEvent calendarEvent)
+    {
+        _editingEventId = calendarEvent.Id;
+        _draft = new CalendarEventDraft
+        {
+            Title = calendarEvent.Title,
+            Category = calendarEvent.Category,
+            Location = calendarEvent.Location,
+            Description = calendarEvent.Description,
+            ReminderMinutesBefore = calendarEvent.ReminderMinutesBefore
+        };
+        _draftDate = calendarEvent.StartsAt.Date;
+        _draftStartTime = TimeOnly.FromDateTime(calendarEvent.StartsAt.LocalDateTime)
+            .ToString("HH:mm", CultureInfo.InvariantCulture);
+        _draftEndTime = TimeOnly.FromDateTime(calendarEvent.EndsAt.LocalDateTime)
+            .ToString("HH:mm", CultureInfo.InvariantCulture);
+        _formError = null;
+        _isEditing = true;
+    }
+
+    private static bool TryParseDraftTime(string value, out TimeOnly time) =>
+        TimeOnly.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out time) ||
+        TimeOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out time);
+
+    private async Task SaveEventAsync()
+    {
+        if (!TryParseDraftTime(_draftStartTime, out var startTime) ||
+            !TryParseDraftTime(_draftEndTime, out var endTime))
+        {
+            _formError = "Enter a valid start and end time.";
+            return;
+        }
+
+        var startsAt = new DateTimeOffset(_draftDate.Date.Add(startTime.ToTimeSpan()));
+        var endsAt = new DateTimeOffset(_draftDate.Date.Add(endTime.ToTimeSpan()));
+        if (endsAt <= startsAt)
+        {
+            _formError = "The end time must be after the start time.";
+            return;
+        }
+
+        var savedEvent = new CalendarEvent
+        {
+            Id = _editingEventId ?? Guid.NewGuid(),
+            Title = _draft.Title.Trim(),
+            Category = _draft.Category,
+            Location = _draft.Location.Trim(),
+            Description = _draft.Description.Trim(),
+            StartsAt = startsAt,
+            EndsAt = endsAt,
+            ReminderMinutesBefore = _draft.ReminderMinutesBefore
+        };
+
+        _errorMessage = null;
+        try
+        {
+            savedEvent = _editingEventId is null
+                ? await EventStore.CreateAsync(savedEvent)
+                : await EventStore.UpdateAsync(savedEvent);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+            return;
+        }
+
+        var existingIndex = _events.FindIndex(calendarEvent => calendarEvent.Id == savedEvent.Id);
+        if (existingIndex < 0)
+        {
+            _events.Add(savedEvent);
+        }
+        else
+        {
+            _events[existingIndex] = savedEvent;
+        }
+
+        _selectedDate = startsAt.Date;
+        _displayedMonth = new DateTime(startsAt.Year, startsAt.Month, 1);
+        _isEditing = false;
+        _confirmDeleteId = null;
+    }
+
+    private void SetDraftStartTime(ChangeEventArgs args) =>
+        _draftStartTime = args.Value?.ToString() ?? string.Empty;
+
+    private void SetDraftEndTime(ChangeEventArgs args) =>
+        _draftEndTime = args.Value?.ToString() ?? string.Empty;
+
+    private void RequestDelete(Guid eventId) => _confirmDeleteId = eventId;
+    private void CancelDelete() => _confirmDeleteId = null;
+
+    private async Task DeleteEventAsync(CalendarEvent calendarEvent)
+    {
+        _errorMessage = null;
+        try
+        {
+            await EventStore.DeleteAsync(calendarEvent.Id);
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+            return;
+        }
+
+        _events.RemoveAll(item => item.Id == calendarEvent.Id);
+        _confirmDeleteId = null;
+    }
+
+    private void CloseEditor()
+    {
+        _isEditing = false;
+        _formError = null;
+    }
+
+    private sealed class CalendarEventDraft
+    {
+        [Required(ErrorMessage = "Enter an event name.")]
+        [StringLength(100, ErrorMessage = "Event names must be 100 characters or fewer.")]
+        public string Title { get; set; } = string.Empty;
+
+        [Required]
+        public string Category { get; set; } = "Class";
+
+        [StringLength(100)]
+        public string Location { get; set; } = string.Empty;
+
+        [StringLength(500)]
+        public string Description { get; set; } = string.Empty;
+
+        public int ReminderMinutesBefore { get; set; }
+    }
+}
