@@ -1,10 +1,11 @@
 @inject IBottomNavigationService BottomNavigationService
+@inject NavigationManager NavigationManager
 
 <nav class="bottom-nav" aria-label="Main navigation">
     @foreach (var item in _items)
     {
         <NavLink @key="item.Id"
-                 href="@item.Route"
+                 href="@GetRoute(item.Route)"
                  class="nav-item"
                  ActiveClass="active"
                  Match="NavLinkMatch.All"
@@ -21,5 +22,11 @@
     protected override async Task OnInitializedAsync()
     {
         _items = await BottomNavigationService.GetItemsAsync();
+    }
+
+    private string GetRoute(string route)
+    {
+        var query = NavigationManager.ToAbsoluteUri(NavigationManager.Uri).Query;
+        return $"{route}{query}";
     }
 }

@@ -65,6 +65,90 @@ namespace MyHybridApp2.Infrastructure.Persistence.Migrations
                     b.ToTable("calendar_events", (string)null);
                 });
 
+            modelBuilder.Entity("MyHybridApp2.Domain.ClassRecords.StudentAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<bool>("IsPresent")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateOnly>("RecordDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("SchoolId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SectionId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("StudentId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "SectionId", "RecordDate");
+
+                    b.HasIndex("SchoolId", "SectionId", "StudentId", "RecordDate")
+                        .IsUnique();
+
+                    b.ToTable("student_attendance", (string)null);
+                });
+
+            modelBuilder.Entity("MyHybridApp2.Domain.ClassRecords.StudentDiaryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Entry")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly>("RecordDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("SchoolId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SectionId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("StudentId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SchoolId", "SectionId", "RecordDate");
+
+                    b.HasIndex("SchoolId", "SectionId", "StudentId", "RecordDate")
+                        .IsUnique();
+
+                    b.ToTable("student_diary_entries", (string)null);
+                });
+
             modelBuilder.Entity("MyHybridApp2.Domain.Posts.Post", b =>
                 {
                     b.Property<Guid>("Id")
