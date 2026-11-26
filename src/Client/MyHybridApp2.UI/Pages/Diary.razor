@@ -1,5 +1,436 @@
 @page "/diary"
+@using Microsoft.AspNetCore.Components
+@using MyHybridApp2.Contracts.ClassRecords
+@inject ISectionRecordStore SectionRecordStore
 
-<PageTitle>Diary</PageTitle>
+<PageTitle>Attendance and Diary</PageTitle>
 
-<PlaceholderNavigationPage Title="Diary" />
+<main class="diary-page">
+    <div class="diary-page__content">
+        <header class="diary-header">
+            <div>
+                <p class="diary-eyebrow">CLASSROOM</p>
+                <h1>Attendance &amp; Diary</h1>
+                <p class="diary-subtitle">Manage attendance and student notes for @_recordDate.ToString("D").</p>
+            </div>
+            <span class="diary-section-badge">@_sectionName</span>
+        </header>
+
+        <div class="diary-preview-notice" role="status">
+            Attendance and diary entries are saved for this section and date.
+        </div>
+
+        @if (_isLoading)
+        {
+            <p class="diary-loading" role="status">Loading students and saved records...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <div class="diary-data-error" role="alert">
+                <span>@_loadError</span>
+                <button type="button" class="diary-picker-apply" @onclick="LoadRecordsAsync">Retry</button>
+            </div>
+        }
+        else
+        {
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="diary-data-error" role="alert">@_errorMessage</div>
+        }
+
+        <div class="diary-tabs" role="tablist" aria-label="Section records">
+            <button type="button"
+                    id="attendance-tab"
+                    class="diary-tab @(_activeTab == DiaryTab.Attendance ? "diary-tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == DiaryTab.Attendance)"
+                    aria-controls="attendance-panel"
+                    @onclick="() => _activeTab = DiaryTab.Attendance">
+                Attendance
+            </button>
+            <button type="button"
+                    id="diary-tab"
+                    class="diary-tab @(_activeTab == DiaryTab.Diary ? "diary-tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == DiaryTab.Diary)"
+                    aria-controls="diary-panel"
+                    @onclick="() => _activeTab = DiaryTab.Diary">
+                Diary
+            </button>
+        </div>
+
+        @if (_activeTab == DiaryTab.Attendance)
+        {
+            <section id="attendance-panel"
+                     class="diary-panel"
+                     role="tabpanel"
+                     aria-labelledby="attendance-tab">
+                <div class="diary-panel__header">
+                    <div>
+                        <h2>Student attendance</h2>
+                        <p>Mark each student who is present.</p>
+                    </div>
+                    <span class="diary-count">@PresentCount of @_students.Count present</span>
+                </div>
+
+                <div class="diary-student-list">
+                    @foreach (var student in _students)
+                    {
+                        <article class="diary-student-card" @key="student.Id">
+                            <div class="diary-student">
+                                <span class="diary-student__avatar" aria-hidden="true">@student.Initials</span>
+                                <div>
+                                    <h3>@student.Name</h3>
+                                    <p>@student.StudentNumber</p>
+                                </div>
+                            </div>
+                            <label class="diary-attendance-toggle">
+                                <input type="checkbox"
+                                       checked="@student.AttendanceDraftPresent"
+                                       @onchange="args => UpdateAttendance(student, args)"
+                                       aria-label="@($"Mark {student.Name} present")" />
+                                <span>Present</span>
+                            </label>
+                        </article>
+                    }
+                </div>
+
+                <div class="diary-attendance-actions">
+                    <span class="diary-attendance-summary">@PresentCount of @_students.Count students marked present</span>
+                    <button type="button"
+                            class="diary-save-button"
+                            disabled="@_isSavingAttendance"
+                            @onclick="SaveAttendance">
+                        @(_isSavingAttendance ? "Saving..." : "Save attendance")
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_attendanceStatus))
+                {
+                    <p class="diary-save-status" role="status">@_attendanceStatus</p>
+                }
+            </section>
+        }
+        else
+        {
+            <section id="diary-panel"
+                     class="diary-panel"
+                     role="tabpanel"
+                     aria-labelledby="diary-tab">
+                <div class="diary-panel__header">
+                    <div>
+                        <h2>Student diary</h2>
+                        <p>Choose one or more students to write a note for their parents.</p>
+                    </div>
+                </div>
+
+                <div class="diary-student-picker">
+                    <button type="button"
+                            class="diary-picker-trigger"
+                            aria-expanded="@_isStudentDropdownOpen"
+                            aria-controls="diary-student-options"
+                            @onclick="ToggleStudentDropdown">
+                        <span>@(_appliedStudentIds.Count == 0 ? "Search and select students" : $"{_appliedStudentIds.Count} students selected")</span>
+                        <span class="diary-picker-trigger__icon" aria-hidden="true">@(_isStudentDropdownOpen ? "⌃" : "⌄")</span>
+                    </button>
+
+                    @if (_isStudentDropdownOpen)
+                    {
+                        <div id="diary-student-options" class="diary-picker-menu">
+                            <label class="diary-student-search">
+                                <span class="visually-hidden">Search students</span>
+                                <input type="search"
+                                       value="@_studentSearch"
+                                       @oninput="UpdateStudentSearch"
+                                       placeholder="Search students..." />
+                            </label>
+
+                            <label class="diary-picker-option diary-picker-option--all">
+                                <input type="checkbox"
+                                       checked="@AreAllStudentsChecked"
+                                       @onchange="ToggleAllStudents" />
+                                <span>All students</span>
+                            </label>
+
+                            <div class="diary-picker-options" role="group" aria-label="Students">
+                                @foreach (var student in FilteredStudents)
+                                {
+                                    <label class="diary-picker-option" @key="student.Id">
+                                        <input type="checkbox"
+                                               checked="@_workingStudentIds.Contains(student.Id)"
+                                               @onchange="args => ToggleStudent(student.Id, args)" />
+                                        <span>@student.Name</span>
+                                        <small>@student.StudentNumber</small>
+                                    </label>
+                                }
+                            </div>
+                            @if (!FilteredStudents.Any())
+                            {
+                                <p class="diary-picker-empty">No students match your search.</p>
+                            }
+
+                            <div class="diary-picker-footer">
+                                <span>@_workingStudentIds.Count selected</span>
+                                <button type="button" class="diary-picker-apply" @onclick="ApplyStudentSelection">OK</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (AppliedDiaryStudents.Count > 0)
+                {
+                    <div class="diary-selected-students" aria-label="Selected students">
+                        @foreach (var student in AppliedDiaryStudents)
+                        {
+                            <span class="diary-student-pill" @key="student.Id">@student.Name</span>
+                        }
+                    </div>
+
+                    <div class="diary-note-editor">
+                        <label for="shared-diary-entry">Note for selected students</label>
+                        <textarea id="shared-diary-entry"
+                                  @bind="_diaryDraft"
+                                  @bind:event="oninput"
+                                  rows="5"
+                                  maxlength="500"
+                                  placeholder="Write a note for the selected students' parents..."></textarea>
+                        <div class="diary-note-editor__footer">
+                            <span>The same note will be saved for each selected student.</span>
+                            <button type="button"
+                                    class="diary-save-button"
+                                    disabled="@_isSavingDiary"
+                                    @onclick="SaveDiaryEntry">
+                                @(_isSavingDiary ? "Saving..." : "Save")
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_diaryStatus))
+                    {
+                        <p class="diary-save-status" role="status">@_diaryStatus</p>
+                    }
+                }
+            </section>
+        }
+        }
+    </div>
+
+    <BottomNavigation />
+</main>
+
+@code {
+    [SupplyParameterFromQuery(Name = "schoolId")]
+    public string? SchoolId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sectionId")]
+    public string? SectionId { get; set; }
+
+    private readonly List<StudentRow> _students = [];
+    private string _schoolId = "oakridge-school";
+    private string _sectionId = "grade-10-a";
+    private string _sectionName = "Grade 10 · Section A";
+    private DateOnly _recordDate = DateOnly.FromDateTime(DateTime.Today);
+    private DiaryTab _activeTab = DiaryTab.Attendance;
+    private readonly HashSet<string> _workingStudentIds = [];
+    private readonly HashSet<string> _appliedStudentIds = [];
+    private bool _isStudentDropdownOpen;
+    private string _studentSearch = string.Empty;
+    private string _diaryDraft = string.Empty;
+    private string? _diaryStatus;
+    private string? _attendanceStatus;
+    private string? _errorMessage;
+    private string? _loadError;
+    private string? _loadedSchoolId;
+    private string? _loadedSectionId;
+    private bool _isLoading = true;
+    private bool _isSavingAttendance;
+    private bool _isSavingDiary;
+    private int PresentCount => _students.Count(student => student.AttendanceDraftPresent);
+    private bool AreAllStudentsChecked => _students.Count > 0 && _workingStudentIds.Count == _students.Count;
+    private List<StudentRow> AppliedDiaryStudents =>
+        _students.Where(student => _appliedStudentIds.Contains(student.Id)).ToList();
+    private IEnumerable<StudentRow> FilteredStudents =>
+        _students.Where(student => student.Name.Contains(_studentSearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var schoolId = string.IsNullOrWhiteSpace(SchoolId) ? "oakridge-school" : SchoolId.Trim();
+        var sectionId = string.IsNullOrWhiteSpace(SectionId) ? "grade-10-a" : SectionId.Trim();
+        if (_loadedSchoolId == schoolId && _loadedSectionId == sectionId)
+        {
+            return;
+        }
+
+        _schoolId = schoolId;
+        _sectionId = sectionId;
+        _loadedSchoolId = schoolId;
+        _loadedSectionId = sectionId;
+        await LoadRecordsAsync();
+    }
+
+    private async Task LoadRecordsAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+        _errorMessage = null;
+        try
+        {
+            var records = await SectionRecordStore.GetAsync(_schoolId, _sectionId, _recordDate);
+            _sectionName = records.SectionName;
+            _recordDate = records.RecordDate;
+            _students.Clear();
+            _students.AddRange(records.Students.Select(student => new StudentRow(student)));
+        }
+        catch (InvalidOperationException exception)
+        {
+            _loadError = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void UpdateAttendance(StudentRow student, ChangeEventArgs args)
+    {
+        student.AttendanceDraftPresent =
+            args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        _attendanceStatus = null;
+    }
+
+    private async Task SaveAttendance()
+    {
+        _isSavingAttendance = true;
+        _errorMessage = null;
+        _attendanceStatus = null;
+        try
+        {
+            var attendanceSnapshot = _students.Select(student => new StudentAttendanceUpdate(
+                    student.Id,
+                    student.AttendanceDraftPresent))
+                .ToList();
+            var request = new SaveSectionAttendanceRequest(_recordDate, attendanceSnapshot);
+            await SectionRecordStore.SaveAttendanceAsync(_schoolId, _sectionId, request);
+
+            foreach (var attendance in attendanceSnapshot)
+            {
+                _students.Single(student => student.Id == attendance.StudentId).IsPresent = attendance.IsPresent;
+            }
+
+            var presentCount = attendanceSnapshot.Count(attendance => attendance.IsPresent);
+            _attendanceStatus = $"Attendance saved for {presentCount} of {attendanceSnapshot.Count} students.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingAttendance = false;
+        }
+    }
+
+    private void ToggleStudentDropdown()
+    {
+        if (_isStudentDropdownOpen)
+        {
+            _isStudentDropdownOpen = false;
+            return;
+        }
+
+        _workingStudentIds.Clear();
+        _workingStudentIds.UnionWith(_appliedStudentIds);
+        _studentSearch = string.Empty;
+        _isStudentDropdownOpen = true;
+    }
+
+    private void UpdateStudentSearch(ChangeEventArgs args) =>
+        _studentSearch = args.Value?.ToString() ?? string.Empty;
+
+    private void ToggleStudent(string studentId, ChangeEventArgs args)
+    {
+        if (args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _workingStudentIds.Add(studentId);
+        }
+        else
+        {
+            _workingStudentIds.Remove(studentId);
+        }
+    }
+
+    private void ToggleAllStudents(ChangeEventArgs args)
+    {
+        _workingStudentIds.Clear();
+        if (args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _workingStudentIds.UnionWith(_students.Select(student => student.Id));
+        }
+    }
+
+    private void ApplyStudentSelection()
+    {
+        _appliedStudentIds.Clear();
+        _appliedStudentIds.UnionWith(_workingStudentIds);
+        _isStudentDropdownOpen = false;
+        _diaryStatus = null;
+
+        var existingEntries = AppliedDiaryStudents
+            .Select(student => student.DiaryEntry)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        _diaryDraft = existingEntries.Count == 1 ? existingEntries[0] : string.Empty;
+    }
+
+    private async Task SaveDiaryEntry()
+    {
+        var note = _diaryDraft.Trim();
+        var selectedStudents = AppliedDiaryStudents;
+        var selectedStudentIds = selectedStudents.Select(student => student.Id).ToList();
+        _isSavingDiary = true;
+        _errorMessage = null;
+        _diaryStatus = null;
+        try
+        {
+            await SectionRecordStore.SaveDiaryAsync(
+                _schoolId,
+                _sectionId,
+                new SaveSectionDiaryRequest(
+                    _recordDate,
+                    selectedStudentIds,
+                    note));
+
+            foreach (var student in selectedStudents)
+            {
+                student.DiaryEntry = note;
+            }
+
+            _diaryStatus = $"Note saved for {selectedStudents.Count} student{(selectedStudents.Count == 1 ? string.Empty : "s")}.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingDiary = false;
+        }
+    }
+
+    private enum DiaryTab
+    {
+        Attendance,
+        Diary
+    }
+
+    private sealed class StudentRow(SectionStudentRecordResponse student)
+    {
+        public string Id { get; } = student.StudentId;
+        public string Name { get; } = student.Name;
+        public string StudentNumber { get; } = student.StudentNumber;
+        public string Initials { get; } = student.Initials;
+        public bool IsPresent { get; set; } = student.IsPresent;
+        public bool AttendanceDraftPresent { get; set; } = student.IsPresent;
+        public string DiaryEntry { get; set; } = student.DiaryEntry;
+    }
+}
