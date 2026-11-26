@@ -29,6 +29,7 @@ app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");
 app.MapCalendarEventEndpoints();
+app.MapSectionRecordEndpoints();
 app.MapPostEndpoints();
 
 app.Run();

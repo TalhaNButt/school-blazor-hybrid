@@ -1,4 +1,7 @@
 @page "/diary"
+@using Microsoft.AspNetCore.Components
+@using MyHybridApp2.Contracts.ClassRecords
+@inject ISectionRecordStore SectionRecordStore
 
 <PageTitle>Attendance and Diary</PageTitle>
 
@@ -8,14 +11,32 @@
             <div>
                 <p class="diary-eyebrow">CLASSROOM</p>
                 <h1>Attendance &amp; Diary</h1>
-                <p class="diary-subtitle">Manage today's attendance and student notes.</p>
+                <p class="diary-subtitle">Manage attendance and student notes for @_recordDate.ToString("D").</p>
             </div>
-            <span class="diary-section-badge">Grade 10 · Section A</span>
+            <span class="diary-section-badge">@_sectionName</span>
         </header>
 
         <div class="diary-preview-notice" role="status">
-            Preview only — attendance and diary entries are not persisted or shared yet.
+            Attendance and diary entries are saved for this section and date.
         </div>
+
+        @if (_isLoading)
+        {
+            <p class="diary-loading" role="status">Loading students and saved records...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <div class="diary-data-error" role="alert">
+                <span>@_loadError</span>
+                <button type="button" class="diary-picker-apply" @onclick="LoadRecordsAsync">Retry</button>
+            </div>
+        }
+        else
+        {
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="diary-data-error" role="alert">@_errorMessage</div>
+        }
 
         <div class="diary-tabs" role="tablist" aria-label="Section records">
             <button type="button"
@@ -76,7 +97,12 @@
 
                 <div class="diary-attendance-actions">
                     <span class="diary-attendance-summary">@PresentCount of @_students.Count students marked present</span>
-                    <button type="button" class="diary-save-button" @onclick="SaveAttendance">Save attendance</button>
+                    <button type="button"
+                            class="diary-save-button"
+                            disabled="@_isSavingAttendance"
+                            @onclick="SaveAttendance">
+                        @(_isSavingAttendance ? "Saving..." : "Save attendance")
+                    </button>
                 </div>
 
                 @if (!string.IsNullOrWhiteSpace(_attendanceStatus))
@@ -172,8 +198,9 @@
                             <span>The same note will be saved for each selected student.</span>
                             <button type="button"
                                     class="diary-save-button"
+                                    disabled="@_isSavingDiary"
                                     @onclick="SaveDiaryEntry">
-                                Save
+                                @(_isSavingDiary ? "Saving..." : "Save")
                             </button>
                         </div>
                     </div>
@@ -185,24 +212,24 @@
                 }
             </section>
         }
+        }
     </div>
 
     <BottomNavigation />
 </main>
 
 @code {
-    private readonly List<StudentRow> _students =
-    [
-        new("student-001", "Aisha Rahman", "Student 001", true),
-        new("student-002", "Adam Khan", "Student 002", true),
-        new("student-003", "Fatima Noor", "Student 003", false),
-        new("student-004", "Hamza Ali", "Student 004", true),
-        new("student-005", "Ibrahim Malik", "Student 005", false),
-        new("student-006", "Maryam Ahmed", "Student 006", true),
-        new("student-007", "Musa Shah", "Student 007", true),
-        new("student-008", "Sara Iqbal", "Student 008", false)
-    ];
+    [SupplyParameterFromQuery(Name = "schoolId")]
+    public string? SchoolId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "sectionId")]
+    public string? SectionId { get; set; }
+
+    private readonly List<StudentRow> _students = [];
+    private string _schoolId = "oakridge-school";
+    private string _sectionId = "grade-10-a";
+    private string _sectionName = "Grade 10 · Section A";
+    private DateOnly _recordDate = DateOnly.FromDateTime(DateTime.Today);
     private DiaryTab _activeTab = DiaryTab.Attendance;
     private readonly HashSet<string> _workingStudentIds = [];
     private readonly HashSet<string> _appliedStudentIds = [];
@@ -211,12 +238,58 @@
     private string _diaryDraft = string.Empty;
     private string? _diaryStatus;
     private string? _attendanceStatus;
+    private string? _errorMessage;
+    private string? _loadError;
+    private string? _loadedSchoolId;
+    private string? _loadedSectionId;
+    private bool _isLoading = true;
+    private bool _isSavingAttendance;
+    private bool _isSavingDiary;
     private int PresentCount => _students.Count(student => student.AttendanceDraftPresent);
     private bool AreAllStudentsChecked => _students.Count > 0 && _workingStudentIds.Count == _students.Count;
     private List<StudentRow> AppliedDiaryStudents =>
         _students.Where(student => _appliedStudentIds.Contains(student.Id)).ToList();
     private IEnumerable<StudentRow> FilteredStudents =>
         _students.Where(student => student.Name.Contains(_studentSearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var schoolId = string.IsNullOrWhiteSpace(SchoolId) ? "oakridge-school" : SchoolId.Trim();
+        var sectionId = string.IsNullOrWhiteSpace(SectionId) ? "grade-10-a" : SectionId.Trim();
+        if (_loadedSchoolId == schoolId && _loadedSectionId == sectionId)
+        {
+            return;
+        }
+
+        _schoolId = schoolId;
+        _sectionId = sectionId;
+        _loadedSchoolId = schoolId;
+        _loadedSectionId = sectionId;
+        await LoadRecordsAsync();
+    }
+
+    private async Task LoadRecordsAsync()
+    {
+        _isLoading = true;
+        _loadError = null;
+        _errorMessage = null;
+        try
+        {
+            var records = await SectionRecordStore.GetAsync(_schoolId, _sectionId, _recordDate);
+            _sectionName = records.SectionName;
+            _recordDate = records.RecordDate;
+            _students.Clear();
+            _students.AddRange(records.Students.Select(student => new StudentRow(student)));
+        }
+        catch (InvalidOperationException exception)
+        {
+            _loadError = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 
     private void UpdateAttendance(StudentRow student, ChangeEventArgs args)
     {
@@ -225,15 +298,36 @@
         _attendanceStatus = null;
     }
 
-    private void SaveAttendance()
+    private async Task SaveAttendance()
     {
-        foreach (var student in _students)
+        _isSavingAttendance = true;
+        _errorMessage = null;
+        _attendanceStatus = null;
+        try
         {
-            student.IsPresent = student.AttendanceDraftPresent;
-        }
+            var attendanceSnapshot = _students.Select(student => new StudentAttendanceUpdate(
+                    student.Id,
+                    student.AttendanceDraftPresent))
+                .ToList();
+            var request = new SaveSectionAttendanceRequest(_recordDate, attendanceSnapshot);
+            await SectionRecordStore.SaveAttendanceAsync(_schoolId, _sectionId, request);
 
-        var presentCount = _students.Count(student => student.IsPresent);
-        _attendanceStatus = $"Attendance saved for {presentCount} of {_students.Count} students in this preview.";
+            foreach (var attendance in attendanceSnapshot)
+            {
+                _students.Single(student => student.Id == attendance.StudentId).IsPresent = attendance.IsPresent;
+            }
+
+            var presentCount = attendanceSnapshot.Count(attendance => attendance.IsPresent);
+            _attendanceStatus = $"Attendance saved for {presentCount} of {attendanceSnapshot.Count} students.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingAttendance = false;
+        }
     }
 
     private void ToggleStudentDropdown()
@@ -288,15 +382,39 @@
         _diaryDraft = existingEntries.Count == 1 ? existingEntries[0] : string.Empty;
     }
 
-    private void SaveDiaryEntry()
+    private async Task SaveDiaryEntry()
     {
         var note = _diaryDraft.Trim();
-        foreach (var student in AppliedDiaryStudents)
+        var selectedStudents = AppliedDiaryStudents;
+        var selectedStudentIds = selectedStudents.Select(student => student.Id).ToList();
+        _isSavingDiary = true;
+        _errorMessage = null;
+        _diaryStatus = null;
+        try
         {
-            student.DiaryEntry = note;
-        }
+            await SectionRecordStore.SaveDiaryAsync(
+                _schoolId,
+                _sectionId,
+                new SaveSectionDiaryRequest(
+                    _recordDate,
+                    selectedStudentIds,
+                    note));
 
-        _diaryStatus = $"Note saved for {AppliedDiaryStudents.Count} student{(AppliedDiaryStudents.Count == 1 ? string.Empty : "s")} in this preview.";
+            foreach (var student in selectedStudents)
+            {
+                student.DiaryEntry = note;
+            }
+
+            _diaryStatus = $"Note saved for {selectedStudents.Count} student{(selectedStudents.Count == 1 ? string.Empty : "s")}.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingDiary = false;
+        }
     }
 
     private enum DiaryTab
@@ -305,16 +423,14 @@
         Diary
     }
 
-    private sealed class StudentRow(string id, string name, string studentNumber, bool isPresent)
+    private sealed class StudentRow(SectionStudentRecordResponse student)
     {
-        public string Id { get; } = id;
-        public string Name { get; } = name;
-        public string StudentNumber { get; } = studentNumber;
-        public string Initials { get; } = string.Join(
-            string.Empty,
-            name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(part => part[0]));
-        public bool IsPresent { get; set; } = isPresent;
-        public bool AttendanceDraftPresent { get; set; } = isPresent;
-        public string DiaryEntry { get; set; } = string.Empty;
+        public string Id { get; } = student.StudentId;
+        public string Name { get; } = student.Name;
+        public string StudentNumber { get; } = student.StudentNumber;
+        public string Initials { get; } = student.Initials;
+        public bool IsPresent { get; set; } = student.IsPresent;
+        public bool AttendanceDraftPresent { get; set; } = student.IsPresent;
+        public string DiaryEntry { get; set; } = student.DiaryEntry;
     }
 }

@@ -1783,6 +1783,24 @@ h1:focus {
     color: #1e293b;
 }
 
+.diary-loading {
+    padding: 1rem;
+    color: #526177;
+}
+
+.diary-data-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid #f0c5c5;
+    border-radius: 10px;
+    background: #fff3f3;
+    color: #8b2626;
+}
+
 .diary-page__content {
     flex: 1;
 }
