@@ -93,3 +93,41 @@ Content-Type: application/json
 
 ### Delete a calendar event
 DELETE {{HostAddress}}/api/calendar-events/{{createCalendarEvent.response.body.$.id}}
+
+###
+
+### Get a section's attendance and diary entries for a date
+GET {{HostAddress}}/api/sections/grade-10-a/records?date=2026-11-26&schoolId=oakridge-school
+Accept: application/json
+
+###
+
+### Save attendance for every student in the section
+PUT {{HostAddress}}/api/sections/grade-10-a/records/attendance?schoolId=oakridge-school
+Content-Type: application/json
+
+{
+  "recordDate": "2026-11-26",
+  "students": [
+    { "studentId": "student-001", "isPresent": true },
+    { "studentId": "student-002", "isPresent": true },
+    { "studentId": "student-003", "isPresent": false },
+    { "studentId": "student-004", "isPresent": true },
+    { "studentId": "student-005", "isPresent": false },
+    { "studentId": "student-006", "isPresent": true },
+    { "studentId": "student-007", "isPresent": true },
+    { "studentId": "student-008", "isPresent": false }
+  ]
+}
+
+###
+
+### Save one diary note for selected students
+PUT {{HostAddress}}/api/sections/grade-10-a/records/diary?schoolId=oakridge-school
+Content-Type: application/json
+
+{
+  "recordDate": "2026-11-26",
+  "studentIds": ["student-001", "student-002"],
+  "entry": "Great work today."
+}

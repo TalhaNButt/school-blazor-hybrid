@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using MyHybridApp2.Application.Calendar;
+using MyHybridApp2.Application.ClassRecords;
 using MyHybridApp2.Application.Posts;
 
 namespace MyHybridApp2.Application;
@@ -13,6 +14,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
 
         services.AddScoped<ICalendarEventService, CalendarEventService>();
+        services.AddScoped<ISectionRecordService, SectionRecordService>();
         services.AddScoped<GetPosts>();
         services.AddScoped<GetPostById>();
         services.AddScoped<CreatePost>();
