@@ -1,0 +1,414 @@
+@page "/diary-view"
+@using System.Globalization
+
+<PageTitle>Diary View</PageTitle>
+
+<main class="parent-diary">
+    <div class="parent-diary__content">
+        <header class="parent-diary__header">
+            <div>
+                <p class="parent-diary__eyebrow">FAMILY PORTAL</p>
+                <h1>Diary View</h1>
+                <p class="parent-diary__subtitle">Keep up with your children's school days.</p>
+            </div>
+            <span class="parent-diary__preview">DEMO · 2 CHILDREN</span>
+        </header>
+
+        <section class="parent-diary__children" aria-label="Choose a child">
+            @for (var index = 0; index < _children.Count; index++)
+            {
+                var childIndex = index;
+                var child = _children[childIndex];
+                <button @key="child.Id"
+                        type="button"
+                        class="parent-diary__child @(_selectedChildIndex == childIndex ? "parent-diary__child--selected" : string.Empty)"
+                        aria-pressed="@(_selectedChildIndex == childIndex)"
+                        @onclick="() => _selectedChildIndex = childIndex">
+                    <span class="parent-diary__avatar" aria-hidden="true">@child.Initials</span>
+                    <span class="parent-diary__child-details">
+                        <strong>@child.Name</strong>
+                        <small>@child.Grade</small>
+                    </span>
+                    @if (_selectedChildIndex == childIndex)
+                    {
+                        <span class="parent-diary__check" aria-hidden="true">✓</span>
+                    }
+                </button>
+            }
+        </section>
+
+        <div class="parent-diary__tabs" role="tablist" aria-label="Child records">
+            <button type="button"
+                    id="parent-attendance-tab"
+                    class="parent-diary__tab @(_activeTab == RecordTab.Attendance ? "parent-diary__tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == RecordTab.Attendance)"
+                    aria-controls="parent-attendance-panel"
+                    @onclick="() => _activeTab = RecordTab.Attendance">
+                <span aria-hidden="true">◷</span>
+                Attendance
+            </button>
+            <button type="button"
+                    id="parent-diary-tab"
+                    class="parent-diary__tab @(_activeTab == RecordTab.Diary ? "parent-diary__tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == RecordTab.Diary)"
+                    aria-controls="parent-diary-panel"
+                    @onclick="() => _activeTab = RecordTab.Diary">
+                <span aria-hidden="true">▤</span>
+                Diary
+            </button>
+        </div>
+
+        <section class="parent-diary__records">
+            <div class="parent-diary__toolbar">
+                <div class="parent-diary__range" role="group" aria-label="Record period">
+                    @foreach (var range in Enum.GetValues<RecordRange>())
+                    {
+                        <button type="button"
+                                class="@(_selectedRange == range ? "parent-diary__range-button parent-diary__range-button--active" : "parent-diary__range-button")"
+                                aria-pressed="@(_selectedRange == range)"
+                                @onclick="() => _selectedRange = range">
+                            @range
+                        </button>
+                    }
+                </div>
+
+                <div class="parent-diary__period">
+                    <button type="button" class="parent-diary__period-button" aria-label="Previous period" @onclick="ShowPreviousPeriod">‹</button>
+                    <h2>@PeriodHeading</h2>
+                    <button type="button" class="parent-diary__period-button" aria-label="Next period" @onclick="ShowNextPeriod">›</button>
+                </div>
+            </div>
+
+            @if (_activeTab == RecordTab.Attendance)
+            {
+                <section id="parent-attendance-panel"
+                         class="parent-diary__panel"
+                         role="tabpanel"
+                         aria-labelledby="parent-attendance-tab">
+                    @if (_selectedRange == RecordRange.Day)
+                    {
+                        <div class="parent-diary__section-heading">
+                            <div>
+                                <h3>Daily attendance</h3>
+                                <p>@SelectedDate.ToString("dddd, MMMM d", CultureInfo.InvariantCulture)</p>
+                            </div>
+                        </div>
+                        @if (SelectedAttendance is { } attendance)
+                        {
+                            <article class="parent-diary__daily-status">
+                                <span class="parent-diary__status-icon @GetStatusClass(attendance.Status)" aria-hidden="true">@GetStatusIcon(attendance.Status)</span>
+                                <span class="parent-diary__daily-details">
+                                    <strong>@SelectedChild.Name</strong>
+                                    <small>@SelectedChild.Grade · School attendance</small>
+                                </span>
+                                <span class="parent-diary__status-label @GetStatusClass(attendance.Status)">@attendance.Status</span>
+                            </article>
+                        }
+                        else
+                        {
+                            <p class="parent-diary__empty">No attendance record is available for this day.</p>
+                        }
+                    }
+                    else if (_selectedRange == RecordRange.Month)
+                    {
+                        <div class="parent-diary__section-heading">
+                            <div>
+                                <h3>Monthly attendance</h3>
+                                <p>@MonthAttendance.Count school days recorded</p>
+                            </div>
+                            <div class="parent-diary__summary">
+                                <span><strong>@CountStatus(AttendanceStatus.Present)</strong> present</span>
+                                <span><strong>@CountStatus(AttendanceStatus.Absent)</strong> absent</span>
+                                <span><strong>@CountStatus(AttendanceStatus.Late)</strong> late</span>
+                            </div>
+                        </div>
+                        <div class="parent-diary__calendar" role="grid" aria-label="@($"{SelectedDate:MMMM yyyy} attendance")">
+                            @foreach (var weekday in Weekdays)
+                            {
+                                <span class="parent-diary__weekday" role="columnheader">@weekday</span>
+                            }
+                            @foreach (var day in MonthDays)
+                            {
+                                if (day is null)
+                                {
+                                    <span class="parent-diary__calendar-blank" aria-hidden="true"></span>
+                                }
+                                else
+                                {
+                                    var dayRecord = FindAttendance(day.Value);
+                                    <span class="parent-diary__calendar-day @(dayRecord is null ? string.Empty : GetStatusClass(dayRecord.Status))"
+                                          role="gridcell"
+                                          aria-label="@GetCalendarDayLabel(day.Value, dayRecord)">
+                                        <span>@day.Value.Day</span>
+                                        @if (dayRecord is not null)
+                                        {
+                                            <span class="parent-diary__calendar-dot" aria-hidden="true"></span>
+                                        }
+                                    </span>
+                                }
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="parent-diary__section-heading">
+                            <div>
+                                <h3>Yearly attendance</h3>
+                                <p>@YearAttendance.Count school days recorded</p>
+                            </div>
+                            <div class="parent-diary__summary">
+                                <span><strong>@CountStatus(AttendanceStatus.Present, YearAttendance)</strong> present</span>
+                                <span><strong>@CountStatus(AttendanceStatus.Absent, YearAttendance)</strong> absent</span>
+                                <span><strong>@CountStatus(AttendanceStatus.Late, YearAttendance)</strong> late</span>
+                            </div>
+                        </div>
+                        @if (YearMonths.Count == 0)
+                        {
+                            <p class="parent-diary__empty">No attendance records are available for this year.</p>
+                        }
+                        else
+                        {
+                            <div class="parent-diary__month-list">
+                                @foreach (var month in YearMonths)
+                                {
+                                    <article class="parent-diary__month-row" @key="month.Month">
+                                        <span class="parent-diary__month-name">@month.Month.ToString("MMMM", CultureInfo.InvariantCulture)</span>
+                                        <span class="parent-diary__month-bar" aria-hidden="true">
+                                            <span style="@GetMonthBarStyle(month)"></span>
+                                        </span>
+                                        <span class="parent-diary__month-total">@month.PresentCount / @month.TotalCount present</span>
+                                    </article>
+                                }
+                            </div>
+                        }
+                    }
+                </section>
+            }
+            else
+            {
+                <section id="parent-diary-panel"
+                         class="parent-diary__panel"
+                         role="tabpanel"
+                         aria-labelledby="parent-diary-tab">
+                    <div class="parent-diary__section-heading">
+                        <div>
+                            <h3>@(_selectedRange == RecordRange.Day ? "Daily diary" : _selectedRange == RecordRange.Month ? "Monthly diary" : "Yearly diary")</h3>
+                            <p>@(_selectedRange == RecordRange.Day ? SelectedDate.ToString("dddd, MMMM d", CultureInfo.InvariantCulture) : "Notes shared by your child's teachers")</p>
+                        </div>
+                        <span class="parent-diary__entry-count">@VisibleDiaryEntries.Count @(VisibleDiaryEntries.Count == 1 ? "note" : "notes")</span>
+                    </div>
+                    @if (VisibleDiaryEntries.Count == 0)
+                    {
+                        <p class="parent-diary__empty">No diary notes are available for this period.</p>
+                    }
+                    else
+                    {
+                        <div class="parent-diary__entry-list">
+                            @foreach (var entry in VisibleDiaryEntries)
+                            {
+                                <article class="parent-diary__entry" @key="entry.Date">
+                                    <span class="parent-diary__entry-date">
+                                        <strong>@entry.Date.ToString("dd", CultureInfo.InvariantCulture)</strong>
+                                        <small>@entry.Date.ToString("MMM", CultureInfo.InvariantCulture)</small>
+                                    </span>
+                                    <div class="parent-diary__entry-content">
+                                        <div class="parent-diary__entry-heading">
+                                            <h4>@entry.Subject</h4>
+                                            <time datetime="@entry.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)">@entry.Date.ToString("ddd, MMM d", CultureInfo.InvariantCulture)</time>
+                                        </div>
+                                        <p>@entry.Note</p>
+                                        <span class="parent-diary__teacher">From @entry.Teacher</span>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        </section>
+        <p class="parent-diary__demo-note">Sample records for preview. Your children's school data will appear here.</p>
+    </div>
+
+    <BottomNavigation />
+</main>
+
+@code {
+    private static readonly string[] Weekdays = ["M", "T", "W", "T", "F", "S", "S"];
+    private static readonly AttendanceStatus[] AttendanceStatuses =
+        [AttendanceStatus.Present, AttendanceStatus.Present, AttendanceStatus.Present, AttendanceStatus.Late, AttendanceStatus.Present, AttendanceStatus.Absent];
+    private readonly List<ChildRecord> _children = CreateChildren(DateOnly.FromDateTime(DateTime.Today));
+    private int _selectedChildIndex;
+    private RecordTab _activeTab = RecordTab.Attendance;
+    private RecordRange _selectedRange = RecordRange.Day;
+    private DateOnly SelectedDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    private ChildRecord SelectedChild => _children[_selectedChildIndex];
+    private string PeriodHeading => _selectedRange switch
+    {
+        RecordRange.Day => SelectedDate.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture),
+        RecordRange.Month => SelectedDate.ToString("MMMM yyyy", CultureInfo.InvariantCulture),
+        _ => SelectedDate.ToString("yyyy", CultureInfo.InvariantCulture)
+    };
+    private IReadOnlyList<AttendanceRecord> MonthAttendance =>
+        SelectedChild.Attendance.Where(record => record.Date.Year == SelectedDate.Year && record.Date.Month == SelectedDate.Month).ToList();
+    private IReadOnlyList<AttendanceRecord> YearAttendance =>
+        SelectedChild.Attendance.Where(record => record.Date.Year == SelectedDate.Year).ToList();
+    private IReadOnlyList<MonthSummary> YearMonths =>
+        YearAttendance.GroupBy(record => record.Date.Month)
+            .OrderByDescending(group => group.Key)
+            .Select(group => new MonthSummary(
+                new DateOnly(SelectedDate.Year, group.Key, 1),
+                group.Count(record => record.Status == AttendanceStatus.Present),
+                group.Count()))
+            .ToList();
+    private IReadOnlyList<DateOnly?> MonthDays
+    {
+        get
+        {
+            var firstDay = new DateOnly(SelectedDate.Year, SelectedDate.Month, 1);
+            var leadingBlanks = ((int)firstDay.DayOfWeek + 6) % 7;
+            var days = new List<DateOnly?>(leadingBlanks + DateTime.DaysInMonth(firstDay.Year, firstDay.Month));
+            days.AddRange(Enumerable.Repeat<DateOnly?>(null, leadingBlanks));
+            for (var day = 1; day <= DateTime.DaysInMonth(firstDay.Year, firstDay.Month); day++)
+            {
+                days.Add(new DateOnly(firstDay.Year, firstDay.Month, day));
+            }
+
+            return days;
+        }
+    }
+    private IReadOnlyList<DiaryEntry> VisibleDiaryEntries => _selectedRange switch
+    {
+        RecordRange.Day => SelectedChild.Entries.Where(entry => entry.Date == SelectedDate).ToList(),
+        RecordRange.Month => SelectedChild.Entries.Where(entry => entry.Date.Year == SelectedDate.Year && entry.Date.Month == SelectedDate.Month)
+            .OrderByDescending(entry => entry.Date).ToList(),
+        _ => SelectedChild.Entries.Where(entry => entry.Date.Year == SelectedDate.Year)
+            .OrderByDescending(entry => entry.Date).ToList()
+    };
+    private AttendanceRecord? SelectedAttendance => FindAttendance(SelectedDate);
+
+    private void ShowPreviousPeriod() => ShiftPeriod(-1);
+    private void ShowNextPeriod() => ShiftPeriod(1);
+
+    private void ShiftPeriod(int amount)
+    {
+        SelectedDate = _selectedRange switch
+        {
+            RecordRange.Day => SelectedDate.AddDays(amount),
+            RecordRange.Month => SelectedDate.AddMonths(amount),
+            _ => SelectedDate.AddYears(amount)
+        };
+    }
+
+    private AttendanceRecord? FindAttendance(DateOnly date) =>
+        SelectedChild.Attendance.FirstOrDefault(record => record.Date == date);
+
+    private int CountStatus(AttendanceStatus status, IReadOnlyList<AttendanceRecord>? records = null) =>
+        (records ?? MonthAttendance).Count(record => record.Status == status);
+
+    private static string GetStatusClass(AttendanceStatus status) => status switch
+    {
+        AttendanceStatus.Present => "status-present",
+        AttendanceStatus.Absent => "status-absent",
+        _ => "status-late"
+    };
+
+    private static string GetStatusIcon(AttendanceStatus status) => status switch
+    {
+        AttendanceStatus.Present => "✓",
+        AttendanceStatus.Absent => "×",
+        _ => "!"
+    };
+
+    private static string GetCalendarDayLabel(DateOnly date, AttendanceRecord? record) =>
+        date.ToString("dddd, MMMM d", CultureInfo.InvariantCulture) +
+        (record is null ? ": no record" : $": {record.Status}");
+
+    private static string GetMonthBarStyle(MonthSummary month) =>
+        $"width: {(month.TotalCount == 0 ? 0 : (double)month.PresentCount / month.TotalCount * 100).ToString("F0", CultureInfo.InvariantCulture)}%";
+
+    private static List<ChildRecord> CreateChildren(DateOnly today)
+    {
+        var students = new[]
+        {
+            new { Id = "maya", Name = "Maya Johnson", Grade = "Grade 4 · Section A", Initials = "MJ", Seed = 0 },
+            new { Id = "ethan", Name = "Ethan Johnson", Grade = "Grade 2 · Section B", Initials = "EJ", Seed = 2 }
+        };
+
+        return students.Select(student =>
+        {
+            var attendance = new List<AttendanceRecord>();
+            for (var month = 1; month <= today.Month; month++)
+            {
+                var daysInMonth = DateTime.DaysInMonth(today.Year, month);
+                for (var day = 1; day <= daysInMonth; day++)
+                {
+                    var date = new DateOnly(today.Year, month, day);
+                    if (date > today || date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                    {
+                        continue;
+                    }
+
+                    var statusIndex = (day + month + student.Seed) % AttendanceStatuses.Length;
+                    attendance.Add(new AttendanceRecord(date, AttendanceStatuses[statusIndex]));
+                }
+            }
+
+            if (today.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                attendance.Add(new AttendanceRecord(today, AttendanceStatus.Present));
+            }
+
+            var entries = new[]
+            {
+                new DiaryEntry(today, "A great day in class", student.Name.StartsWith("Maya", StringComparison.Ordinal)
+                    ? "Maya shared thoughtful ideas during our science discussion and worked kindly with her group."
+                    : "Ethan showed great focus during reading time and proudly finished his class activity.", "Ms. Carter"),
+                new DiaryEntry(today.AddDays(-7), "Learning highlight", student.Name.StartsWith("Maya", StringComparison.Ordinal)
+                    ? "We explored fractions today. Maya did a lovely job explaining how she solved each problem."
+                    : "Ethan enjoyed our story-writing activity and created a wonderfully imaginative ending.", "Mr. Lee"),
+                new DiaryEntry(today.AddDays(-21), "A note from class", student.Name.StartsWith("Maya", StringComparison.Ordinal)
+                    ? "Maya was a helpful classroom partner and made a positive contribution to her team."
+                    : "Ethan participated enthusiastically in music and practiced keeping a steady rhythm.", "Ms. Carter"),
+                new DiaryEntry(today.AddDays(-65), "Classroom update", student.Name.StartsWith("Maya", StringComparison.Ordinal)
+                    ? "Maya has been building confidence when presenting her work to the class."
+                    : "Ethan has made wonderful progress with his weekly reading practice.", "Mr. Lee")
+            };
+
+            return new ChildRecord(student.Id, student.Name, student.Grade, student.Initials, attendance, entries);
+        }).ToList();
+    }
+
+    private enum RecordTab
+    {
+        Attendance,
+        Diary
+    }
+
+    private enum RecordRange
+    {
+        Day,
+        Month,
+        Year
+    }
+
+    private enum AttendanceStatus
+    {
+        Present,
+        Absent,
+        Late
+    }
+
+    private sealed record AttendanceRecord(DateOnly Date, AttendanceStatus Status);
+    private sealed record DiaryEntry(DateOnly Date, string Subject, string Note, string Teacher);
+    private sealed record MonthSummary(DateOnly Month, int PresentCount, int TotalCount);
+    private sealed record ChildRecord(
+        string Id,
+        string Name,
+        string Grade,
+        string Initials,
+        IReadOnlyList<AttendanceRecord> Attendance,
+        IReadOnlyList<DiaryEntry> Entries);
+}

@@ -9,7 +9,8 @@ public sealed class BottomNavigationService : IBottomNavigationService
         new() { Id = "feed", Label = "Feed", Icon = "🏠", Route = "/home", SortOrder = 1 },
         new() { Id = "announcements", Label = "Announcements", Icon = "📣", Route = "/announcements", SortOrder = 2 },
         new() { Id = "calendar", Label = "Calendar", Icon = "🗓️", Route = "/calendar", SortOrder = 3 },
-        new() { Id = "diary", Label = "Diary", Icon = "📔", Route = "/diary", SortOrder = 4 }
+        new() { Id = "diary", Label = "Diary", Icon = "📔", Route = "/diary", SortOrder = 4 },
+        new() { Id = "diary-view", Label = "Diary View", Icon = "👪", Route = "/diary-view", SortOrder = 5 }
     ];
 
     public Task<IReadOnlyList<BottomNavigationItem>> GetItemsAsync() =>
