@@ -21,9 +21,18 @@
             </NavLink>
         </div>
     </nav>
+    <div class="nav-logout">
+        <button type="button" class="nav-logout-button" @onclick="OnLogout">
+            <span class="bi bi-power-nav-menu" aria-hidden="true"></span>
+            <span>Logout</span>
+        </button>
+    </div>
 </div>
 
 @code {
+    [Parameter]
+    public EventCallback OnLogout { get; set; }
+
     private bool IsMobilePlatform =>
         OperatingSystem.IsAndroid() ||
         (OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst());

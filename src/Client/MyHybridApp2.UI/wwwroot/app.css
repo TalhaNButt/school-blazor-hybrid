@@ -300,20 +300,6 @@ h1:focus {
     margin-bottom: 1.5rem;
 }
 
-.logout-button {
-    padding: 0.75rem 1.5rem;
-    background-color: #666;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-}
-
-.logout-button:hover {
-    background-color: #444;
-}
-
 .feed-container {
     --primary-color: #6d4aff;
     --primary-light: #7a5fff;
