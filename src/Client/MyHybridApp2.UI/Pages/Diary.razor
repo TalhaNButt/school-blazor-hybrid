@@ -1,5 +1,320 @@
 @page "/diary"
 
-<PageTitle>Diary</PageTitle>
+<PageTitle>Attendance and Diary</PageTitle>
 
-<PlaceholderNavigationPage Title="Diary" />
+<main class="diary-page">
+    <div class="diary-page__content">
+        <header class="diary-header">
+            <div>
+                <p class="diary-eyebrow">CLASSROOM</p>
+                <h1>Attendance &amp; Diary</h1>
+                <p class="diary-subtitle">Manage today's attendance and student notes.</p>
+            </div>
+            <span class="diary-section-badge">Grade 10 · Section A</span>
+        </header>
+
+        <div class="diary-preview-notice" role="status">
+            Preview only — attendance and diary entries are not persisted or shared yet.
+        </div>
+
+        <div class="diary-tabs" role="tablist" aria-label="Section records">
+            <button type="button"
+                    id="attendance-tab"
+                    class="diary-tab @(_activeTab == DiaryTab.Attendance ? "diary-tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == DiaryTab.Attendance)"
+                    aria-controls="attendance-panel"
+                    @onclick="() => _activeTab = DiaryTab.Attendance">
+                Attendance
+            </button>
+            <button type="button"
+                    id="diary-tab"
+                    class="diary-tab @(_activeTab == DiaryTab.Diary ? "diary-tab--active" : string.Empty)"
+                    role="tab"
+                    aria-selected="@(_activeTab == DiaryTab.Diary)"
+                    aria-controls="diary-panel"
+                    @onclick="() => _activeTab = DiaryTab.Diary">
+                Diary
+            </button>
+        </div>
+
+        @if (_activeTab == DiaryTab.Attendance)
+        {
+            <section id="attendance-panel"
+                     class="diary-panel"
+                     role="tabpanel"
+                     aria-labelledby="attendance-tab">
+                <div class="diary-panel__header">
+                    <div>
+                        <h2>Student attendance</h2>
+                        <p>Mark each student who is present.</p>
+                    </div>
+                    <span class="diary-count">@PresentCount of @_students.Count present</span>
+                </div>
+
+                <div class="diary-student-list">
+                    @foreach (var student in _students)
+                    {
+                        <article class="diary-student-card" @key="student.Id">
+                            <div class="diary-student">
+                                <span class="diary-student__avatar" aria-hidden="true">@student.Initials</span>
+                                <div>
+                                    <h3>@student.Name</h3>
+                                    <p>@student.StudentNumber</p>
+                                </div>
+                            </div>
+                            <label class="diary-attendance-toggle">
+                                <input type="checkbox"
+                                       checked="@student.AttendanceDraftPresent"
+                                       @onchange="args => UpdateAttendance(student, args)"
+                                       aria-label="@($"Mark {student.Name} present")" />
+                                <span>Present</span>
+                            </label>
+                        </article>
+                    }
+                </div>
+
+                <div class="diary-attendance-actions">
+                    <span class="diary-attendance-summary">@PresentCount of @_students.Count students marked present</span>
+                    <button type="button" class="diary-save-button" @onclick="SaveAttendance">Save attendance</button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_attendanceStatus))
+                {
+                    <p class="diary-save-status" role="status">@_attendanceStatus</p>
+                }
+            </section>
+        }
+        else
+        {
+            <section id="diary-panel"
+                     class="diary-panel"
+                     role="tabpanel"
+                     aria-labelledby="diary-tab">
+                <div class="diary-panel__header">
+                    <div>
+                        <h2>Student diary</h2>
+                        <p>Choose one or more students to write a note for their parents.</p>
+                    </div>
+                </div>
+
+                <div class="diary-student-picker">
+                    <button type="button"
+                            class="diary-picker-trigger"
+                            aria-expanded="@_isStudentDropdownOpen"
+                            aria-controls="diary-student-options"
+                            @onclick="ToggleStudentDropdown">
+                        <span>@(_appliedStudentIds.Count == 0 ? "Search and select students" : $"{_appliedStudentIds.Count} students selected")</span>
+                        <span class="diary-picker-trigger__icon" aria-hidden="true">@(_isStudentDropdownOpen ? "⌃" : "⌄")</span>
+                    </button>
+
+                    @if (_isStudentDropdownOpen)
+                    {
+                        <div id="diary-student-options" class="diary-picker-menu">
+                            <label class="diary-student-search">
+                                <span class="visually-hidden">Search students</span>
+                                <input type="search"
+                                       value="@_studentSearch"
+                                       @oninput="UpdateStudentSearch"
+                                       placeholder="Search students..." />
+                            </label>
+
+                            <label class="diary-picker-option diary-picker-option--all">
+                                <input type="checkbox"
+                                       checked="@AreAllStudentsChecked"
+                                       @onchange="ToggleAllStudents" />
+                                <span>All students</span>
+                            </label>
+
+                            <div class="diary-picker-options" role="group" aria-label="Students">
+                                @foreach (var student in FilteredStudents)
+                                {
+                                    <label class="diary-picker-option" @key="student.Id">
+                                        <input type="checkbox"
+                                               checked="@_workingStudentIds.Contains(student.Id)"
+                                               @onchange="args => ToggleStudent(student.Id, args)" />
+                                        <span>@student.Name</span>
+                                        <small>@student.StudentNumber</small>
+                                    </label>
+                                }
+                            </div>
+                            @if (!FilteredStudents.Any())
+                            {
+                                <p class="diary-picker-empty">No students match your search.</p>
+                            }
+
+                            <div class="diary-picker-footer">
+                                <span>@_workingStudentIds.Count selected</span>
+                                <button type="button" class="diary-picker-apply" @onclick="ApplyStudentSelection">OK</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (AppliedDiaryStudents.Count > 0)
+                {
+                    <div class="diary-selected-students" aria-label="Selected students">
+                        @foreach (var student in AppliedDiaryStudents)
+                        {
+                            <span class="diary-student-pill" @key="student.Id">@student.Name</span>
+                        }
+                    </div>
+
+                    <div class="diary-note-editor">
+                        <label for="shared-diary-entry">Note for selected students</label>
+                        <textarea id="shared-diary-entry"
+                                  @bind="_diaryDraft"
+                                  @bind:event="oninput"
+                                  rows="5"
+                                  maxlength="500"
+                                  placeholder="Write a note for the selected students' parents..."></textarea>
+                        <div class="diary-note-editor__footer">
+                            <span>The same note will be saved for each selected student.</span>
+                            <button type="button"
+                                    class="diary-save-button"
+                                    @onclick="SaveDiaryEntry">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_diaryStatus))
+                    {
+                        <p class="diary-save-status" role="status">@_diaryStatus</p>
+                    }
+                }
+            </section>
+        }
+    </div>
+
+    <BottomNavigation />
+</main>
+
+@code {
+    private readonly List<StudentRow> _students =
+    [
+        new("student-001", "Aisha Rahman", "Student 001", true),
+        new("student-002", "Adam Khan", "Student 002", true),
+        new("student-003", "Fatima Noor", "Student 003", false),
+        new("student-004", "Hamza Ali", "Student 004", true),
+        new("student-005", "Ibrahim Malik", "Student 005", false),
+        new("student-006", "Maryam Ahmed", "Student 006", true),
+        new("student-007", "Musa Shah", "Student 007", true),
+        new("student-008", "Sara Iqbal", "Student 008", false)
+    ];
+
+    private DiaryTab _activeTab = DiaryTab.Attendance;
+    private readonly HashSet<string> _workingStudentIds = [];
+    private readonly HashSet<string> _appliedStudentIds = [];
+    private bool _isStudentDropdownOpen;
+    private string _studentSearch = string.Empty;
+    private string _diaryDraft = string.Empty;
+    private string? _diaryStatus;
+    private string? _attendanceStatus;
+    private int PresentCount => _students.Count(student => student.AttendanceDraftPresent);
+    private bool AreAllStudentsChecked => _students.Count > 0 && _workingStudentIds.Count == _students.Count;
+    private List<StudentRow> AppliedDiaryStudents =>
+        _students.Where(student => _appliedStudentIds.Contains(student.Id)).ToList();
+    private IEnumerable<StudentRow> FilteredStudents =>
+        _students.Where(student => student.Name.Contains(_studentSearch, StringComparison.OrdinalIgnoreCase));
+
+    private void UpdateAttendance(StudentRow student, ChangeEventArgs args)
+    {
+        student.AttendanceDraftPresent =
+            args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        _attendanceStatus = null;
+    }
+
+    private void SaveAttendance()
+    {
+        foreach (var student in _students)
+        {
+            student.IsPresent = student.AttendanceDraftPresent;
+        }
+
+        var presentCount = _students.Count(student => student.IsPresent);
+        _attendanceStatus = $"Attendance saved for {presentCount} of {_students.Count} students in this preview.";
+    }
+
+    private void ToggleStudentDropdown()
+    {
+        if (_isStudentDropdownOpen)
+        {
+            _isStudentDropdownOpen = false;
+            return;
+        }
+
+        _workingStudentIds.Clear();
+        _workingStudentIds.UnionWith(_appliedStudentIds);
+        _studentSearch = string.Empty;
+        _isStudentDropdownOpen = true;
+    }
+
+    private void UpdateStudentSearch(ChangeEventArgs args) =>
+        _studentSearch = args.Value?.ToString() ?? string.Empty;
+
+    private void ToggleStudent(string studentId, ChangeEventArgs args)
+    {
+        if (args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _workingStudentIds.Add(studentId);
+        }
+        else
+        {
+            _workingStudentIds.Remove(studentId);
+        }
+    }
+
+    private void ToggleAllStudents(ChangeEventArgs args)
+    {
+        _workingStudentIds.Clear();
+        if (args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _workingStudentIds.UnionWith(_students.Select(student => student.Id));
+        }
+    }
+
+    private void ApplyStudentSelection()
+    {
+        _appliedStudentIds.Clear();
+        _appliedStudentIds.UnionWith(_workingStudentIds);
+        _isStudentDropdownOpen = false;
+        _diaryStatus = null;
+
+        var existingEntries = AppliedDiaryStudents
+            .Select(student => student.DiaryEntry)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        _diaryDraft = existingEntries.Count == 1 ? existingEntries[0] : string.Empty;
+    }
+
+    private void SaveDiaryEntry()
+    {
+        var note = _diaryDraft.Trim();
+        foreach (var student in AppliedDiaryStudents)
+        {
+            student.DiaryEntry = note;
+        }
+
+        _diaryStatus = $"Note saved for {AppliedDiaryStudents.Count} student{(AppliedDiaryStudents.Count == 1 ? string.Empty : "s")} in this preview.";
+    }
+
+    private enum DiaryTab
+    {
+        Attendance,
+        Diary
+    }
+
+    private sealed class StudentRow(string id, string name, string studentNumber, bool isPresent)
+    {
+        public string Id { get; } = id;
+        public string Name { get; } = name;
+        public string StudentNumber { get; } = studentNumber;
+        public string Initials { get; } = string.Join(
+            string.Empty,
+            name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(part => part[0]));
+        public bool IsPresent { get; set; } = isPresent;
+        public bool AttendanceDraftPresent { get; set; } = isPresent;
+        public string DiaryEntry { get; set; } = string.Empty;
+    }
+}
